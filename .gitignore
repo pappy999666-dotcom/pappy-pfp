@@ -10,6 +10,15 @@ out-tsc
 
 # dependencies
 node_modules
+node_modules/
+
+# Bot runtime files
+.env
+sessions/
+*.db
+*.log
+logs/
+.pm2/
 
 # IDEs and editors
 /.idea
@@ -40,9 +49,6 @@ testem.log
 # System Files
 .DS_Store
 Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
 
 # Replit
 .cache/
