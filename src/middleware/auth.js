@@ -1,6 +1,8 @@
+'use strict';
 const { User, ForceJoin } = require('../database/models');
 const config = require('../config');
-const { btn, SUCCESS } = require('../utils/buttonStyles');
+const { btn, SUCCESS, PRIMARY } = require('../utils/buttonStyles');
+const ui = require('../utils/ui');
 
 function isOwner(id) { return config.ownerIds.includes(String(id)); }
 
@@ -13,41 +15,96 @@ async function upsertUser(ctx, next) {
       { upsert: true }
     ).catch(() => {});
   }
-  if (typeof next === 'function') {
-    return next();
-  }
+  if (typeof next === 'function') return next();
+}
+
+/**
+ * Resolve a usable chat identifier for getChatMember from a stored ForceJoin doc.
+ * Returns @username, numeric chatId string, or null if unresolvable.
+ */
+function resolveChatId(fj) {
+  // Already have a resolved chatId
+  if (fj.chatId) return fj.chatId;
+
+  const link = fj.link || '';
+
+  // @username directly
+  if (link.startsWith('@')) return link;
+
+  // t.me/username (public channel)
+  const usernameMatch = link.match(/t\.me\/([A-Za-z][A-Za-z0-9_]{3,})$/);
+  if (usernameMatch) return '@' + usernameMatch[1];
+
+  // Numeric ID stored as string
+  if (/^-?\d+$/.test(link)) return link;
+
+  // Invite links (t.me/+xxx or t.me/joinchat/xxx) — cannot verify membership
+  return null;
 }
 
 async function checkForceJoin(ctx, bot) {
   const links = await ForceJoin.find({ isActive: true, isRequired: true, platform: 'telegram' });
   if (!links.length) return true;
+
   const uid = ctx.from?.id;
   if (!uid || isOwner(uid)) return true;
 
   const notJoined = [];
-  for (const l of links) {
+  const unverifiable = [];
+
+  for (const fj of links) {
+    const chatId = resolveChatId(fj);
+
+    if (!chatId) {
+      // Invite link — can't verify, show as required but skip membership check
+      unverifiable.push(fj);
+      continue;
+    }
+
     try {
-      const m = await bot.telegram.getChatMember(l.chatId || l.link, uid);
-      if (!['member', 'administrator', 'creator'].includes(m?.status)) notJoined.push(l);
-    } catch { notJoined.push(l); }
-  }
-  if (!notJoined.length) return true;
-
-  // Required channel join buttons — URL type (no color, just link)
-  const btns = notJoined.map(l => [{ text: `${l.title || l.link}`, url: l.link }]);
-
-  const optionalLinks = await ForceJoin.find({ isActive: true, isRequired: false });
-  for (const l of optionalLinks) {
-    btns.push([{ text: `${l.title || l.link} (Optional)`, url: l.link }]);
+      const member = await bot.telegram.getChatMember(chatId, uid);
+      const joined = ['member', 'administrator', 'creator'].includes(member?.status);
+      if (!joined) notJoined.push(fj);
+    } catch (e) {
+      // If bot isn't in the channel or other error — treat as not joined
+      notJoined.push(fj);
+    }
   }
 
-  // Green "I've Joined" check button
-  btns.push([btn("✅ I've Joined - Check", 'check_join', SUCCESS)]);
+  // If all verifiable channels are joined and no unverifiable ones, allow
+  if (!notJoined.length && !unverifiable.length) return true;
 
-  await ctx.reply(
-    `*Join Required*\n\nJoin the channels below before using ${config.bot.name}:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }
-  ).catch(() => {});
+  // Build join buttons
+  const btns = [];
+
+  for (const fj of [...notJoined, ...unverifiable]) {
+    const label = fj.title && fj.title !== fj.link
+      ? `📢 ${fj.title}`
+      : `📢 Join Channel`;
+    btns.push([{ text: label, url: fj.link }]);
+  }
+
+  // Optional channels
+  const optional = await ForceJoin.find({ isActive: true, isRequired: false, platform: 'telegram' });
+  for (const fj of optional) {
+    const label = fj.title && fj.title !== fj.link ? fj.title : 'Optional Channel';
+    btns.push([{ text: `📌 ${label} (Optional)`, url: fj.link }]);
+  }
+
+  btns.push([btn("✅ I've Joined — Check Now", 'check_join', SUCCESS)]);
+
+  const channelCount = notJoined.length + unverifiable.length;
+  const text = [
+    `🔒 ${ui.bold('Join Required')}`,
+    '',
+    `<blockquote>You need to join ${channelCount === 1 ? 'this channel' : `these ${channelCount} channels`} to use ${ui.esc(config.bot.name)}.\n\nTap the button${channelCount > 1 ? 's' : ''} below to join, then tap ✅ Check.</blockquote>`,
+  ].join('\n');
+
+  await ctx.reply(text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: btns },
+  }).catch(() => {});
+
   return false;
 }
 

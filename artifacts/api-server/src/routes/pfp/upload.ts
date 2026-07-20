@@ -35,20 +35,38 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB — any size accepted
   fileFilter: (_req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/jpg"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only JPG, PNG, and WEBP images are allowed."));
+      cb(null, false);
     }
   },
 });
 
-router.post("/pfp/upload", upload.single("image"), async (req, res): Promise<void> => {
+const uploadHandler = upload.single("image");
+
+router.post("/pfp/upload", (req, res, next) => {
+  uploadHandler(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        res.status(400).json({ error: "File too large. Maximum size is 100MB." });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
+      return;
+    }
+    if (err) {
+      res.status(400).json({ error: err.message || "Upload error." });
+      return;
+    }
+    next();
+  });
+}, async (req, res): Promise<void> => {
   if (!req.file) {
-    res.status(400).json({ error: "No image file provided." });
+    res.status(400).json({ error: "No image file provided. Allowed types: JPG, PNG, WEBP." });
     return;
   }
 

@@ -63,15 +63,15 @@ async function startWorker(bot) {
 
       await bot.telegram.sendMessage(
         telegramId,
-        `*Auto PFP Updated*\n\`+${whatsappNumber}\`\nImage ${idx + 1}/${doc.images.length}`,
-        { parse_mode: 'Markdown' }
+        `<b>Auto PFP Updated</b>\n\`+${whatsappNumber}\`\nImage ${idx + 1}/${doc.images.length}`,
+        { parse_mode: 'HTML' }
       ).catch(() => {});
     } catch (e) {
       logger.error(`Auto PFP failed for +${whatsappNumber}: ${e.message}`);
       await bot.telegram.sendMessage(
         telegramId,
         `Auto PFP change failed for \`+${whatsappNumber}\`: ${e.message}\nWill retry on next cycle.`,
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       ).catch(() => {});
     }
   }, { connection: redisConn() });

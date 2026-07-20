@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { ThemeProvider } from '@/components/theme-provider';
+import { SoundProvider } from '@/components/layout/navbar';
 
 import Home from '@/pages/home';
 import AppWizard from '@/pages/app';
@@ -23,6 +24,7 @@ function Router() {
 function App() {
   return (
     <ThemeProvider>
+      <SoundProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
@@ -31,6 +33,7 @@ function App() {
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
+      </SoundProvider>
     </ThemeProvider>
   );
 }

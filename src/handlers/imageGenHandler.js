@@ -18,12 +18,12 @@ async function promptUser(ctx) {
       '*Examples:*',
       '• _Make me a wedding invitation card for Daniel weds Titi at Live Venue by 1pm_',
       '• _Create a birthday poster for John turning 25_',
-      '• _Generate a fantasy landscape with dragons_',
-      '• _Design a graduation flyer for Mary_'
+      '• <i>Generate a fantasy landscape with dragons</i>',
+      '• <i>Design a graduation flyer for Mary</i>'
     ].join('\n');
     
     await ctx.reply(text, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [[btn('❌ Cancel', 'main_menu', DANGER)]],
       },
@@ -40,7 +40,7 @@ async function handlePrompt(ctx, bot) {
     const prompt = ctx.message?.text?.trim();
     if (!prompt || prompt.length < 3) {
       return ctx.reply(ui.warn('Invalid Prompt', 'Please provide a longer description.'), {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [[btn('🎨 Try Again', 'imagegen', SUCCESS)]] },
       });
     }
@@ -57,7 +57,7 @@ async function handlePrompt(ctx, bot) {
       ui.taskProgress(progressLabel, 0, 100)
     ].join('\n');
 
-    waitMsg = await ctx.reply(waitText, { parse_mode: 'Markdown' });
+    waitMsg = await ctx.reply(waitText, { parse_mode: 'HTML' });
 
     imageQueue.run(async () => {
       try {
@@ -80,7 +80,7 @@ async function handlePrompt(ctx, bot) {
           { source: buffer },
           {
             caption,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
                 [btn('🎨 Generate Another', 'imagegen',  SUCCESS)],
@@ -96,7 +96,7 @@ async function handlePrompt(ctx, bot) {
         await ctx.reply(
           ui.error('Generation Failed', err.message, 'Please try again with a different prompt.'),
           {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
                 [btn('🎨 Try Again',  'imagegen',  SUCCESS)],

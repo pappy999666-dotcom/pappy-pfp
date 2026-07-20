@@ -11,13 +11,13 @@ async function start(ctx) {
     const text = [
       ui.screenHeader(config.bot.name, 'Image Search'),
       '',
-      '> Send a keyword to search for HD images (up to 20 per page).',
+      '<blockquote>Send a keyword to search for HD images (up to 20 per page).</blockquote>',
       '',
       ui.italic('Examples: `sukuna`, `anime girl`, `nature 4k`')
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') }));
   } catch (err) {
     return eh.handle(ctx, err, 'pinterest_start', 'main_menu');
   }
@@ -26,14 +26,14 @@ async function start(ctx) {
 async function search(ctx, query, page = 0) {
   let msg;
   try {
-    msg = await ctx.reply(ui.loading(`Searching for *"${query}"*...`), { parse_mode: 'Markdown' });
+    msg = await ctx.reply(ui.loading(`Searching for *"${query}"*...`), { parse_mode: 'HTML' });
 
     const imgs = await searchImages(query, page, 20);
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
 
     if (!imgs.length) {
       return ctx.reply(ui.info('No Results', `No images found for *"${query}"*.`), {
-        parse_mode: 'Markdown', reply_markup: K.backMain(),
+        parse_mode: 'HTML', reply_markup: K.backMain(),
       });
     }
 
@@ -43,7 +43,7 @@ async function search(ctx, query, page = 0) {
     const media1 = batch1.map((img, i) => ({
       type: 'photo',
       media: img.url,
-      ...(i === 0 ? { caption: `*"${query}"* - Page ${page + 1}\n${imgs.length} images`, parse_mode: 'Markdown' } : {}),
+      ...(i === 0 ? { caption: `*"${query}"* - Page ${page + 1}\n${imgs.length} images`, parse_mode: 'HTML' } : {}),
     }));
 
     try {
@@ -66,7 +66,7 @@ async function search(ctx, query, page = 0) {
     }
 
     await ctx.reply(`> Showing *${imgs.length}* images for *"${query}"*`, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: K.pinterestBottom(query, page),
     });
   } catch (err) {

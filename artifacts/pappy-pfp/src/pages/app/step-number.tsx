@@ -3,85 +3,68 @@ import { useWizard } from "./wizard-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, ArrowRight, ShieldCheck, Phone } from "lucide-react";
 
-const COUNTRIES = [
-  { code: "+1", name: "US / Canada", flag: "🇺🇸" },
-  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
-  { code: "+91", name: "India", flag: "🇮🇳" },
-  { code: "+234", name: "Nigeria", flag: "🇳🇬" },
-  { code: "+254", name: "Kenya", flag: "🇰🇪" },
-  { code: "+27", name: "South Africa", flag: "🇿🇦" },
-  { code: "+61", name: "Australia", flag: "🇦🇺" },
-  { code: "+49", name: "Germany", flag: "🇩🇪" },
-  { code: "+33", name: "France", flag: "🇫🇷" },
-  { code: "+55", name: "Brazil", flag: "🇧🇷" },
-  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
-  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
-  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
-  { code: "+63", name: "Philippines", flag: "🇵🇭" },
-  { code: "+52", name: "Mexico", flag: "🇲🇽" },
-];
+/** Strip everything except digits, return E.164 digits (no +) */
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D/g, "");
+}
+
+/** Basic E.164 length check: 7–15 digits */
+function validatePhone(digits: string): string | null {
+  if (digits.length < 7) return "Number too short — include your country code (e.g. +2348012345678).";
+  if (digits.length > 15) return "Number too long — please check and try again.";
+  return null;
+}
 
 export default function StepNumber() {
-  const { phoneNumber, countryCode, setPhoneState, setStep } = useWizard();
-  const [localPhone, setLocalPhone] = useState(phoneNumber);
-  const [localCode, setLocalCode] = useState(countryCode);
-
-  const isValid = localPhone.replace(/\D/g, '').length >= 7;
+  const { setPhoneState, setStep } = useWizard();
+  const [raw, setRaw] = useState("");
+  const [error, setError] = useState("");
 
   const handleContinue = () => {
-    if (isValid) {
-      setPhoneState(localPhone.replace(/\D/g, ''), localCode);
-      setStep(4);
-    }
+    const digits = normalizePhone(raw);
+    const err = validatePhone(digits);
+    if (err) { setError(err); return; }
+    // Store digits only, countryCode is empty since it's embedded
+    setPhoneState(digits, "");
+    setStep(4);
   };
 
   return (
     <Card className="border-primary/20 bg-[#0A0E1A]/80 backdrop-blur-xl">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Enter WhatsApp Number</CardTitle>
-        <CardDescription className="text-base">
-          Which account are we updating today?
+        <CardTitle className="text-2xl">Enter Your WhatsApp Number</CardTitle>
+        <CardDescription className="text-base text-white/60">
+          Include your country code — spaces, dashes and + are fine.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex gap-3">
-          <div className="w-[140px]">
-            <Select value={localCode} onValueChange={setLocalCode}>
-              <SelectTrigger className="h-14 bg-black/40 border-white/10 text-white font-display">
-                <SelectValue placeholder="Code" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0A0E1A] border-white/10 text-white max-h-[300px]">
-                {COUNTRIES.map(c => (
-                  <SelectItem key={c.code} value={c.code} className="hover:bg-white/5 cursor-pointer">
-                    <span className="font-sans mr-2">{c.flag}</span>
-                    <span className="font-mono text-white/50 w-10 inline-block">{c.code}</span>
-                    <span className="truncate">{c.name}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 relative">
-            <Input 
-              type="tel" 
-              placeholder="Phone number" 
-              className="h-14 bg-black/40 border-white/10 text-xl font-mono text-white tracking-wider px-4"
-              value={localPhone}
-              onChange={e => setLocalPhone(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && isValid && handleContinue()}
-              autoFocus
-            />
-          </div>
+        <div className="relative">
+          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 pointer-events-none" />
+          <Input
+            type="tel"
+            placeholder="+234 801 234 5678"
+            className={`h-14 bg-black/40 border-white/10 text-xl font-mono text-white tracking-wider pl-12 pr-4
+              ${error ? "border-red-500/70 focus-visible:ring-red-500/50" : ""}`}
+            value={raw}
+            onChange={e => { setRaw(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && handleContinue()}
+            autoFocus
+          />
         </div>
 
-        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex gap-4 text-sm">
-          <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
-          <p className="text-white/70 leading-relaxed">
-            <span className="text-white font-semibold block mb-1">Privacy First</span>
-            We temporarily connect to your WhatsApp to update your picture. Your session is removed immediately after — unless you choose otherwise.
+        {error && (
+          <p className="text-red-400 text-sm pl-1 flex items-center gap-2">
+            <span className="text-red-400">⚠</span> {error}
+          </p>
+        )}
+
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex gap-3 text-sm">
+          <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <p className="text-white/60 leading-relaxed">
+            <span className="text-white font-semibold block mb-0.5">Privacy First</span>
+            We connect temporarily to update your picture, then disconnect immediately. No data is stored.
           </p>
         </div>
       </CardContent>
@@ -89,7 +72,7 @@ export default function StepNumber() {
         <Button variant="ghost" onClick={() => setStep(2)} className="text-white/60">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
-        <Button onClick={handleContinue} disabled={!isValid} className="px-8">
+        <Button onClick={handleContinue} className="px-8">
           Continue <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </CardFooter>

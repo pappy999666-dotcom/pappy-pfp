@@ -26,7 +26,7 @@ async function jidCommand(ctx) {
                 `🆔 JID: \`${info.id}\`\n` +
                 `👥 Participants: *${info.size}*\n` +
                 `📝 Description: ${info.desc || 'None'}`,
-                { parse_mode: 'Markdown' }
+                { parse_mode: 'HTML' }
             );
         } catch (e) {
             return ctx.reply(`❌ Failed to resolve link: ${e.message}`);
@@ -37,7 +37,7 @@ async function jidCommand(ctx) {
     if (!isOwnerConnected()) {
         return ctx.reply(
             `❌ *Owner WA not connected.*\n\nPair it first via Owner Panel → Pair Owner WA.\n\nOnce connected, run /jid to list all groups & channels.`,
-            { parse_mode: 'Markdown' }
+            { parse_mode: 'HTML' }
         );
     }
 
@@ -91,10 +91,10 @@ async function jidCommand(ctx) {
 
             await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id).catch(() => {});
             for (const c of chunks) {
-                await ctx.reply(c, { parse_mode: 'Markdown' });
+                await ctx.reply(c, { parse_mode: 'HTML' });
             }
         } else {
-            await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, text, { parse_mode: 'Markdown' });
+            await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, text, { parse_mode: 'HTML' });
         }
     } catch (e) {
         await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, `❌ Error: ${e.message}`).catch(() => {});
@@ -107,11 +107,11 @@ async function jidUserCommand(ctx) {
     if (!isOwner) return;
 
     const args = ctx.message.text?.split(' ').slice(1).join(' ').trim();
-    if (!args) return ctx.reply('Usage: `/jiduser <whatsapp_number>`\nExample: `/jiduser 1234567890`', { parse_mode: 'Markdown' });
+    if (!args) return ctx.reply('Usage: `/jiduser <whatsapp_number>`\nExample: `/jiduser 1234567890`', { parse_mode: 'HTML' });
 
     const num = args.replace(/\D/g, '');
     const session = await Session.findOne({ whatsappNumber: num, isActive: true });
-    if (!session) return ctx.reply(`❌ No active session for \`+${num}\``, { parse_mode: 'Markdown' });
+    if (!session) return ctx.reply(`❌ No active session for \`+${num}\``, { parse_mode: 'HTML' });
 
     const sock = getSock(session.telegramId, num);
     if (!sock) return ctx.reply(`❌ Session exists but socket not active. User needs to reconnect.`);
@@ -128,7 +128,7 @@ async function jidUserCommand(ctx) {
         for (const g of entries) {
             text += `• *${g.subject || 'Unnamed'}*\n  \`${g.id}\`\n`;
         }
-        await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, text, { parse_mode: 'Markdown' });
+        await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, text, { parse_mode: 'HTML' });
     } catch (e) {
         await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, `❌ Error: ${e.message}`).catch(() => {});
     }

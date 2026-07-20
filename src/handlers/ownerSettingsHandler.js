@@ -19,8 +19,8 @@ async function settingsMenu(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Settings Center'),
     '',
-    '> Configure every feature from here.',
-    '> Changes take effect immediately.',
+    '<blockquote>Configure every feature from here.</blockquote>',
+    '<blockquote>Changes take effect immediately.</blockquote>',
     '',
     ui.divider(),
     '',
@@ -41,7 +41,7 @@ async function settingsMenu(ctx) {
     [{ text: '‹ Back to Owner Panel', callback_data: 'owner' }]
   ];
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 
 // ── Drops Settings ────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ async function dropsPanel(ctx) {
     [{ text: '‹ Back to Settings', callback_data: 'o_settings' }]
   ];
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function dropToggle(ctx, field) {
   await settingsManager.toggle(`drops.${field}`);
@@ -81,8 +81,8 @@ async function dropSetImagesPrompt(ctx, field) {
   const drops = await settingsManager.getGroup('drops');
   ctx.setState({ step: 'o_settings_set_drop_val', dropField: field });
   await ctx.editMessageText(
-    `*Set Drops Value*\n\nCurrent: ${drops[field]}\n\nSend new numeric value for ${field}:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_drops'}]] } }
+    `<b>Set Drops Value</b>\n\nCurrent: ${drops[field]}\n\nSend new numeric value for ${field}:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_drops'}]] } }
   ).catch(()=>{});
 }
 async function dropSetImagesInput(ctx) {
@@ -117,7 +117,7 @@ async function watermarkPanel(ctx) {
     [btn('🔄 Reset to Defaults', 'o_set_wm_reset', DANGER)],
     [{ text: '‹ Back to Settings', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function wmToggle(ctx) {
   await settingsManager.toggle('watermark.enabled');
@@ -128,8 +128,8 @@ async function wmSetOpacityPrompt(ctx, field) {
   const wm = await settingsManager.getGroup('watermark');
   ctx.setState({ step: 'o_settings_set_wm_val', wmField: field });
   await ctx.editMessageText(
-    `*Set Watermark Value*\n\nCurrent: ${wm[field]}\n\nSend new numeric value for ${field}:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wm'}]] } }
+    `<b>Set Watermark Value</b>\n\nCurrent: ${wm[field]}\n\nSend new numeric value for ${field}:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wm'}]] } }
   ).catch(()=>{});
 }
 async function wmSetOpacityInput(ctx) {
@@ -141,14 +141,14 @@ async function wmSetOpacityInput(ctx) {
   await ctx.reply(`✅ Updated ${field} to ${val}`, {reply_markup: {inline_keyboard: [[{text:'‹ Back', callback_data:'o_settings_wm'}]]}});
 }
 async function wmSetPositionPanel(ctx) {
-  const text = `*Select Watermark Position*`;
+  const text = `<b>Select Watermark Position</b>`;
   const btns = [
     [btn('Top Left', 'o_set_wm_sel:top-left', PRIMARY), btn('Top Right', 'o_set_wm_sel:top-right', PRIMARY)],
     [btn('Bottom Left', 'o_set_wm_sel:bottom-left', PRIMARY), btn('Bottom Right', 'o_set_wm_sel:bottom-right', PRIMARY)],
     [btn('Center', 'o_set_wm_sel:center', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings_wm' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function wmSetPositionSelect(ctx, pos) {
   await settingsManager.set('watermark.position', pos);
@@ -159,8 +159,8 @@ async function wmSetTextPrompt(ctx) {
   const wm = await settingsManager.getGroup('watermark');
   ctx.setState({ step: 'o_settings_set_wm_text' });
   await ctx.editMessageText(
-    `*Set Watermark Text*\n\nCurrent: ${wm.text}\n\nSend new text:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wm'}]] } }
+    `<b>Set Watermark Text</b>\n\nCurrent: ${wm.text}\n\nSend new text:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wm'}]] } }
   ).catch(()=>{});
 }
 async function wmSetTextInput(ctx) {
@@ -195,7 +195,7 @@ async function enhancerPanel(ctx) {
     [btn(en.artifacts ? '⛔ Disable Artifacts' : '✅ Enable Artifacts', 'o_set_en_tg:artifacts', en.artifacts ? DANGER : SUCCESS)],
     [{ text: '‹ Back to Settings', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function enhancerToggleEnabled(ctx) { await settingsManager.toggle('enhancer.enabled'); await ctx.answerCbQuery('✅ Updated').catch(()=>{}); await enhancerPanel(ctx); }
 async function enhancerToggleUpscale(ctx) { await settingsManager.toggle('enhancer.upscale'); await ctx.answerCbQuery('✅ Updated').catch(()=>{}); await enhancerPanel(ctx); }
@@ -218,14 +218,14 @@ async function ratePanel(ctx) {
     [btn('Set Max Requests', 'o_set_rate:maxRequests', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function rateLimitSet(ctx, field) {
   const rl = await settingsManager.getGroup('rateLimit');
   ctx.setState({ step: 'o_settings_set_rate', rateField: field });
   await ctx.editMessageText(
-    `*Set Rate Limit*\n\nCurrent ${field}: ${rl[field]}\n\nSend new numeric value:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_rate'}]] } }
+    `<b>Set Rate Limit</b>\n\nCurrent ${field}: ${rl[field]}\n\nSend new numeric value:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_rate'}]] } }
   ).catch(()=>{});
 }
 async function rateLimitInput(ctx) {
@@ -253,7 +253,7 @@ async function maintPanel(ctx) {
     [btn('✏️ Set Message', 'o_set_maint_msg', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function maintToggle(ctx) {
   await settingsManager.toggle('maintenance.enabled');
@@ -264,8 +264,8 @@ async function maintMsgPrompt(ctx) {
   const m = await settingsManager.getGroup('maintenance');
   ctx.setState({ step: 'o_settings_set_maint_msg' });
   await ctx.editMessageText(
-    `*Set Maintenance Message*\n\nCurrent: ${m.message}\n\nSend new message:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_maint'}]] } }
+    `<b>Set Maintenance Message</b>\n\nCurrent: ${m.message}\n\nSend new message:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_maint'}]] } }
   ).catch(()=>{});
 }
 async function maintMsgInput(ctx) {
@@ -292,7 +292,7 @@ async function logPanel(ctx) {
     [btn(l.debug ? '⛔ Disable Debug' : '✅ Enable Debug', 'o_set_log_tg', l.debug ? DANGER : SUCCESS)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function logSetLevel(ctx, level) {
   await settingsManager.set('logging.level', level);
@@ -323,14 +323,14 @@ async function uploadsPanel(ctx) {
     [btn('Set Max Days', 'o_set_up:maxScheduleDays', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function uploadsSet(ctx, field) {
   const u = await settingsManager.getGroup('uploads');
   ctx.setState({ step: 'o_settings_set_up', upField: field });
   await ctx.editMessageText(
-    `*Set Upload Limit*\n\nCurrent ${field}: ${u[field]}\n\nSend new numeric value:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_uploads'}]] } }
+    `<b>Set Upload Limit</b>\n\nCurrent ${field}: ${u[field]}\n\nSend new numeric value:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_uploads'}]] } }
   ).catch(()=>{});
 }
 async function uploadsInput(ctx) {
@@ -360,14 +360,14 @@ async function cooldownsPanel(ctx) {
     [btn('Set Broadcast Delay Ms', 'o_set_cool:broadcastDelayMs', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function cooldownsSet(ctx, field) {
   const c = await settingsManager.getGroup('cooldowns');
   ctx.setState({ step: 'o_settings_set_cool', coolField: field });
   await ctx.editMessageText(
-    `*Set Cooldown*\n\nCurrent ${field}: ${c[field]}\n\nSend new numeric value:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_cooldowns'}]] } }
+    `<b>Set Cooldown</b>\n\nCurrent ${field}: ${c[field]}\n\nSend new numeric value:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_cooldowns'}]] } }
   ).catch(()=>{});
 }
 async function cooldownsInput(ctx) {
@@ -395,7 +395,7 @@ async function schedulerPanel(ctx) {
     [btn('Set Cleanup Days', 'o_set_sch_days', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function schedulerToggle(ctx, field) {
   await settingsManager.toggle(`scheduler.${field}`);
@@ -406,8 +406,8 @@ async function schedulerSetDays(ctx) {
   const s = await settingsManager.getGroup('scheduler');
   ctx.setState({ step: 'o_settings_set_sch_days' });
   await ctx.editMessageText(
-    `*Set Cleanup Days*\n\nCurrent: ${s.autoCleanupDays}\n\nSend new numeric value:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_scheduler'}]] } }
+    `<b>Set Cleanup Days</b>\n\nCurrent: ${s.autoCleanupDays}\n\nSend new numeric value:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_scheduler'}]] } }
   ).catch(()=>{});
 }
 async function schedulerDaysInput(ctx) {
@@ -427,6 +427,8 @@ async function waPanel(ctx) {
     ui.blockquote([
       `Publishing: [${w.channelEnabled ? '✅' : '⛔'}]`,
       `Auto-publish drops: [${w.autoPublishDrops ? '✅' : '⛔'}]`,
+      `Auto-join on web pair: [${w.autoJoinEnabled ? '✅' : '⛔'}]`,
+      `Join channel: [${w.autoJoinChannel || 'Not set'}]`,
       `Retry on failure: [${w.retryOnFailure ? '✅' : '⛔'}]`,
       `Max retries: [${w.maxRetries}]`,
       `Duplicate prevention: [${w.duplicatePreventionHrs} hours]`
@@ -435,12 +437,14 @@ async function waPanel(ctx) {
   const btns = [
     [btn(w.channelEnabled ? '⛔ Disable Publishing' : '✅ Enable Publishing', 'o_set_wa_tg:channelEnabled', w.channelEnabled ? DANGER : SUCCESS)],
     [btn(w.autoPublishDrops ? '⛔ Disable Auto-publish' : '✅ Enable Auto-publish', 'o_set_wa_tg:autoPublishDrops', w.autoPublishDrops ? DANGER : SUCCESS)],
+    [btn(w.autoJoinEnabled ? '⛔ Disable Auto-Join' : '✅ Enable Auto-Join', 'o_set_wa_tg:autoJoinEnabled', w.autoJoinEnabled ? DANGER : SUCCESS)],
+    [btn('🔗 Set Auto-Join Channel Link', 'o_set_wa_join_link', PRIMARY)],
     [btn(w.retryOnFailure ? '⛔ Disable Retries' : '✅ Enable Retries', 'o_set_wa_tg:retryOnFailure', w.retryOnFailure ? DANGER : SUCCESS)],
     [btn('Set Max Retries', 'o_set_wa_retries:maxRetries', PRIMARY)],
     [btn('Set Dup Prevention Hrs', 'o_set_wa_retries:duplicatePreventionHrs', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function waToggle(ctx, field) {
   await settingsManager.toggle(`whatsapp.${field}`);
@@ -451,10 +455,46 @@ async function waSetRetries(ctx, field) {
   const w = await settingsManager.getGroup('whatsapp');
   ctx.setState({ step: 'o_settings_set_wa', waField: field });
   await ctx.editMessageText(
-    `*Set WA Channel Setting*\n\nCurrent ${field}: ${w[field]}\n\nSend new numeric value:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wa'}]] } }
+    `<b>Set WA Channel Setting</b>\n\nCurrent ${field}: ${w[field]}\n\nSend new numeric value:`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wa'}]] } }
   ).catch(()=>{});
 }
+async function waSetJoinLinkPrompt(ctx) {
+  const w = await settingsManager.getGroup('whatsapp');
+  ctx.setState({ step: 'o_settings_set_wa_join_link' });
+  await ctx.editMessageText(
+    [
+      ui.screenHeader(config.bot.name, 'Set Auto-Join Channel Link'),
+      '',
+      ui.blockquote([`Current: ${w.autoJoinChannel || 'Not set'}`]),
+      '',
+      '<blockquote>Send the full WhatsApp channel invite link:</blockquote>',
+      '<blockquote>Example: `https://whatsapp.com/channel/XXXXXXXX`</blockquote>'
+    ].join('\n'),
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wa'}]] } }
+  ).catch(()=>{});
+}
+async function waSetJoinLinkInput(ctx) {
+  clearState(ctx.from.id);
+  const val = ctx.message.text?.trim();
+  if (!val.startsWith('https://whatsapp.com/channel/') && !val.startsWith('https://chat.whatsapp.com/')) {
+    return ctx.reply(ui.error('Invalid link', 'Must be a whatsapp.com/channel or chat.whatsapp.com link.'), { parse_mode: 'HTML' });
+  }
+  await settingsManager.set('whatsapp.autoJoinChannel', val);
+  // Also write to the API server env file so it picks it up on next restart
+  const fs = require('fs');
+  try {
+    let envContent = fs.readFileSync('/root/pappy-pfp/artifacts/api-server/.env', 'utf8');
+    if (envContent.includes('WA_AUTO_JOIN_CHANNEL=')) {
+      envContent = envContent.replace(/WA_AUTO_JOIN_CHANNEL=.*/g, `WA_AUTO_JOIN_CHANNEL=${val}`);
+    } else {
+      envContent += `\nWA_AUTO_JOIN_CHANNEL=${val}`;
+    }
+    fs.writeFileSync('/root/pappy-pfp/artifacts/api-server/.env', envContent);
+  } catch(e) { /* non-fatal */ }
+  await ctx.reply(ui.success('Auto-Join Channel Set', val), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'‹ Back', callback_data:'o_settings_wa'}]] } });
+}
+
 async function waRetriesInput(ctx) {
   const field = ctx.userState.waField;
   clearState(ctx.from.id);
@@ -475,7 +515,7 @@ async function categoriesPanel(ctx) {
   let text = [
     ui.screenHeader(config.bot.name, 'Categories'),
     '',
-    '> Toggle wallpaper categories.',
+    '<blockquote>Toggle wallpaper categories.</blockquote>',
     ''
   ];
   
@@ -496,7 +536,7 @@ async function categoriesPanel(ctx) {
   }
   btns.push([{ text: '‹ Back', callback_data: 'o_settings' }]);
 
-  await ctx.editMessageText(text.join('\n'), { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text.join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
 }
 async function categoryToggle(ctx, cat) {
   const c = await settingsManager.getGroup('categories');
@@ -515,6 +555,22 @@ async function categoryToggle(ctx, cat) {
 async function dropAutoToggle(ctx) { return dropToggle(ctx, 'autoDropEnabled'); }
 async function waAutoToggle(ctx)   { return waToggle(ctx, 'autoPublishDrops'); }
 
+// ── Generic input dispatcher (called from messageRouter) ─────────────────
+async function handleInput(ctx, _bot) {
+  const step = ctx.userState?.step;
+  if (!step) return;
+  if (step === 'o_settings_set_drop_val')    return dropSetImagesInput(ctx);
+  if (step === 'o_settings_set_wm_val')      return wmSetOpacityInput(ctx);
+  if (step === 'o_settings_set_wm_text')     return wmSetTextInput(ctx);
+  if (step === 'o_settings_set_rate')        return rateLimitInput(ctx);
+  if (step === 'o_settings_set_maint_msg')   return maintMsgInput(ctx);
+  if (step === 'o_settings_set_up')          return uploadsInput(ctx);
+  if (step === 'o_settings_set_cool')        return cooldownsInput(ctx);
+  if (step === 'o_settings_set_sch_days')    return schedulerDaysInput(ctx);
+  if (step === 'o_settings_set_wa')          return waRetriesInput(ctx);
+  if (step === 'o_settings_set_wa_join_link') return waSetJoinLinkInput(ctx);
+}
+
 module.exports = {
   settingsMenu,
   dropsPanel, dropToggle, dropAutoToggle, dropSetImagesPrompt, dropSetImagesInput,
@@ -526,6 +582,7 @@ module.exports = {
   uploadsPanel, uploadsSet, uploadsInput,
   cooldownsPanel, cooldownsSet, cooldownsInput,
   schedulerPanel, schedulerToggle, schedulerSetDays, schedulerDaysInput,
-  waPanel, waToggle, waAutoToggle, waSetRetries, waRetriesInput,
+  waPanel, waToggle, waAutoToggle, waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
+  handleInput,
   categoriesPanel, categoryToggle,
 };

@@ -20,8 +20,8 @@ async function panel(ctx) {
       'From here you can manage all aspects of the bot.'
     ])
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.ownerPanel() })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.ownerPanel() }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.ownerPanel() })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.ownerPanel() }));
 }
 
 async function stats(ctx) {
@@ -50,21 +50,21 @@ async function stats(ctx) {
     ])
   ].join('\n');
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => {});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }).catch(() => {});
 }
 
 async function users(ctx) {
   const list = await User.find().sort({ lastActive: -1 }).limit(20);
   const lines = list.map((u, i) =>
     `${i + 1}. ${ui.statusDot(u.isActive !== false, '', '')} ${u.firstName || ''} @${u.username || '-'} (\`${u.telegramId}\`)`
-  ).join('\n') || '> No users yet.';
+  ).join('\n') || '<blockquote>No users yet.</blockquote>';
   
   const text = [
     ui.screenHeader(config.bot.name, 'Recent Users'),
     '',
     lines
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => {});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }).catch(() => {});
 }
 
 async function broadcastPrompt(ctx) {
@@ -72,16 +72,16 @@ async function broadcastPrompt(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Broadcast Message'),
     '',
-    '> Send the message to broadcast (text, photo, video, or document):'
+    '<blockquote>Send the message to broadcast (text, photo, video, or document):</blockquote>'
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }));
 }
 
 async function broadcastDo(ctx, bot) {
   clearState(ctx.from.id);
   const all = await User.find({ isBlocked: false });
-  const m = await ctx.reply(ui.loading(`Broadcasting to ${all.length} users...`), { parse_mode: 'Markdown' });
+  const m = await ctx.reply(ui.loading(`Broadcasting to ${all.length} users...`), { parse_mode: 'HTML' });
 
   let ok = 0, fail = 0;
   for (const chunk of chunkArray(all, 25)) {
@@ -89,7 +89,7 @@ async function broadcastDo(ctx, bot) {
       try {
         const tid = u.telegramId;
         if (ctx.message.text) {
-          await bot.telegram.sendMessage(tid, ctx.message.text, { parse_mode: 'Markdown' });
+          await bot.telegram.sendMessage(tid, ctx.message.text, { parse_mode: 'HTML' });
         } else if (ctx.message.photo) {
           await bot.telegram.sendPhoto(tid, ctx.message.photo.at(-1).file_id, { caption: ctx.message.caption || '' });
         } else if (ctx.message.video) {
@@ -105,7 +105,7 @@ async function broadcastDo(ctx, bot) {
 
   await ctx.telegram.editMessageText(ctx.chat.id, m.message_id, null,
     ui.success('Broadcast Complete', `Success: ${ok} | Failed: ${fail}`),
-    { parse_mode: 'Markdown', reply_markup: K.back('owner') }
+    { parse_mode: 'HTML', reply_markup: K.back('owner') }
   );
 }
 
@@ -124,7 +124,7 @@ async function fjPanel(ctx) {
     `> ${links.length}/5 links configured`
   ].join('\n');
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(() => {});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
 }
 
 async function fjAddPrompt(ctx) {
@@ -132,19 +132,38 @@ async function fjAddPrompt(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Add Force Join Link'),
     '',
-    '> Send the channel/group invite link:'
+    '<blockquote>Send the channel/group invite link:</blockquote>'
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('o_fj') })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('o_fj') }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('o_fj') })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('o_fj') }));
 }
 
 async function fjAddDo(ctx) {
   clearState(ctx.from.id);
   const link = ctx.message.text?.trim();
   if (!link.startsWith('http') && !link.startsWith('@'))
-    return ctx.reply(ui.error('Invalid Link', 'Send a t.me link or @username.'), { parse_mode: 'Markdown' });
-  await ForceJoin.create({ link, title: link, isRequired: true, platform: 'telegram' });
-  await ctx.reply(ui.success('Link Added'), { parse_mode: 'Markdown', reply_markup: K.back('o_fj') });
+    return ctx.reply(ui.error('Invalid Link', 'Send a t.me link or @username.'), { parse_mode: 'HTML' });
+
+  // Extract @username or chatId from link
+  // t.me/username -> @username
+  // t.me/+hash or t.me/joinchat/hash -> invite link (can't getChatMember, store as-is)
+  let chatId = null;
+  let title = link;
+  const usernameMatch = link.match(/t\.me\/([A-Za-z][A-Za-z0-9_]{3,})$/);
+  if (usernameMatch) {
+    chatId = '@' + usernameMatch[1];
+    // Try to get chat info for the title
+    try {
+      const chat = await ctx.telegram.getChat(chatId);
+      title = chat.title || chat.username || chatId;
+    } catch {}
+  }
+
+  await ForceJoin.create({ link, chatId, title, isRequired: true, platform: 'telegram' });
+  await ctx.reply(
+    ui.success('Force Join Added', chatId ? `Channel: ${title}\nID: ${chatId}` : `Link stored. Note: invite links cannot verify membership — use a public @username link for verification.`),
+    { parse_mode: 'HTML', reply_markup: K.back('o_fj') }
+  );
 }
 
 async function fjDel(ctx, id) {
@@ -162,10 +181,10 @@ async function channelPanel(ctx) {
     ui.screenHeader(config.bot.name, 'Channel Management'),
     '',
     '*WhatsApp Channels:*',
-    waChs.length ? waChs.map(c => `> ${c.title || c.link}`).join('\n') : '> None',
+    waChs.length ? waChs.map(c => `> ${c.title || c.link}`).join('\n') : '<blockquote>None</blockquote>',
     '',
     '*Telegram Channels:*',
-    tgChs.length ? tgChs.map(c => `> ${c.title || c.link}`).join('\n') : '> None (auto-tracked when bot is admin)',
+    tgChs.length ? tgChs.map(c => `> ${c.title || c.link}`).join('\n') : '<blockquote>None (auto-tracked when bot is admin)</blockquote>',
   ].join('\n');
 
   const btns = [];
@@ -181,7 +200,7 @@ async function channelPanel(ctx) {
   ]);
   btns.push([{ text: '‹ Back', callback_data: 'owner' }]);
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(() => {});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
 }
 
 async function channelAddPrompt(ctx, platform) {
@@ -194,17 +213,17 @@ async function channelAddPrompt(ctx, platform) {
     `> Send the identifier.`,
     `> Example: ${ex}`
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('o_channels') })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('o_channels') }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('o_channels') })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('o_channels') }));
 }
 
 async function channelAddDo(ctx) {
   const { platform } = ctx.userState;
   clearState(ctx.from.id);
   const link = ctx.message.text?.trim();
-  if (!link) return ctx.reply(ui.error('Invalid input', 'Send a valid link or ID.'), { parse_mode: 'Markdown' });
+  if (!link) return ctx.reply(ui.error('Invalid input', 'Send a valid link or ID.'), { parse_mode: 'HTML' });
   await Channel.create({ platform, link, title: link });
-  await ctx.reply(ui.success('Channel Added', 'Wallpaper drops will now be sent here.'), { parse_mode: 'Markdown', reply_markup: K.back('o_channels') });
+  await ctx.reply(ui.success('Channel Added', 'Wallpaper drops will now be sent here.'), { parse_mode: 'HTML', reply_markup: K.back('o_channels') });
 }
 
 async function channelDel(ctx, id) {
@@ -224,9 +243,9 @@ async function ownerWaStatus(ctx) {
       `Status: ${connected ? '🟢 Connected' : '🔴 Disconnected'}`
     ]),
     '',
-    !connected ? '> Use "Set/Change Owner WA Number" to configure, then "Pair Owner WA" to connect.' : '> The owner account is active and ready for group PFP tasks.'
+    !connected ? '<blockquote>Use "Set/Change Owner WA Number" to configure, then "Pair Owner WA" to connect.</blockquote>' : '<blockquote>The owner account is active and ready for group PFP tasks.</blockquote>'
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => {});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }).catch(() => {});
 }
 
 async function ownerWaSetPrompt(ctx) {
@@ -235,20 +254,20 @@ async function ownerWaSetPrompt(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Set Owner WhatsApp Number'),
     '',
-    `> Current: ${current ? `\`+${current}\`` : '_Not set_'}`,
+    `> Current: ${current ? `\`+${current}\`` : '<i>Not set</i>'}`,
     '',
     `> Send the WhatsApp number with country code:`,
     `> Example: \`+1234567890\``
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }));
 }
 
 async function ownerWaSetDo(ctx) {
   clearState(ctx.from.id);
   const phone = ctx.message.text?.trim();
   if (!isValidPhoneNumber(phone)) {
-    return ctx.reply(ui.error('Invalid number', 'Include country code, e.g. `+1234567890`'), { parse_mode: 'Markdown' });
+    return ctx.reply(ui.error('Invalid number', 'Include country code, e.g. `+1234567890`'), { parse_mode: 'HTML' });
   }
   const num = formatPhoneNumber(phone);
 
@@ -263,9 +282,9 @@ async function ownerWaSetDo(ctx) {
   setOwnerNumber(num);
 
   await ctx.reply(
-    ui.success('Owner WA number set', `Number: \`+${num}\``, '> Now use "Pair Owner WA" to connect this number.'),
+    ui.success('Owner WA number set', `Number: \`+${num}\``, '<blockquote>Now use "Pair Owner WA" to connect this number.</blockquote>'),
     {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('🔗 Pair Owner WA',        'o_wa_pair', SUCCESS)],
         [btn('‹ Back to Owner Panel',   'owner',     PRIMARY)],
@@ -282,7 +301,7 @@ async function ownerWaPair(ctx, bot) {
       ui.warn('No number configured', 'Use "Set/Change Owner WA Number" first.')
     ].join('\n');
     return ctx.editMessageText(text, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('🔧 Set Owner WA Number', 'o_wa_set', SUCCESS)],
         [btn('‹ Back',                'owner',     PRIMARY)],
@@ -297,7 +316,7 @@ async function ownerWaPair(ctx, bot) {
       ui.info('Already connected', `As \`+${config.ownerWaNumber}\`\n\nTo re-pair, set a new number first.`)
     ].join('\n');
     return ctx.editMessageText(text, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('🔄 Change Number', 'o_wa_set', SUCCESS)],
         [btn('‹ Back',          'owner',     PRIMARY)],
@@ -312,7 +331,7 @@ async function ownerWaPair(ctx, bot) {
     `> Choose pairing method:`
   ].join('\n');
   await ctx.editMessageText(text, {
-    parse_mode: 'Markdown',
+    parse_mode: 'HTML',
     reply_markup: { inline_keyboard: [
       [btn('🔢 Pair with Code', 'o_wa_pair_code', SUCCESS)],
       [btn('📷 Pair with QR',   'o_wa_pair_qr',   SUCCESS)],
@@ -323,47 +342,34 @@ async function ownerWaPair(ctx, bot) {
 
 async function ownerWaPairCode(ctx, bot) {
   const num = config.ownerWaNumber;
-  const wait = await ctx.editMessageText(ui.loading(`Connecting owner WA \`+${num}\` via pairing code...`), { parse_mode: 'Markdown' })
-    .catch(() => ctx.reply(ui.loading(`Connecting owner WA \`+${num}\` via pairing code...`), { parse_mode: 'Markdown' }));
+  const wait = await ctx.editMessageText(ui.loading(`Connecting owner WA \`+${num}\` via pairing code...`), { parse_mode: 'HTML' })
+    .catch(() => ctx.reply(ui.loading(`Connecting owner WA \`+${num}\` via pairing code...`), { parse_mode: 'HTML' }));
 
   try {
     await connectOwnerWA({
       onCode: async code => {
         const formatted = code.replace(/(.{4})/g, '$1-').replace(/-$/, '');
         try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); } catch {}
-        const text = [
-          ui.screenHeader(config.bot.name, 'Owner WA Pairing Code', `+${num}`),
-          '',
-          `\`${formatted}\``,
-          '',
-          '*Steps:*',
-          '> 1. Open WhatsApp on the owner phone',
-          '> 2. Settings → Linked Devices',
-          '> 3. Link a Device → Link with phone number',
-          '> 4. Enter the code above',
-          '',
-          '_Code expires in 60 seconds_'
-        ].join('\n');
-        await ctx.reply(text, { parse_mode: 'Markdown' });
+        await ctx.reply(ui.pairingCodeMessage(num, formatted), { parse_mode: 'HTML' });
       },
       onConnected: async () => {
         const { setupGroupEventListeners } = require('../services/ownerWhatsapp');
         setupGroupEventListeners(bot);
-        await ctx.reply(ui.success('Owner WA Connected!', `Number: \`+${num}\``, '> Group PFP features are now active.'), { parse_mode: 'Markdown', reply_markup: K.back('owner') });
+        await ctx.reply(ui.success('Owner WA Connected!', `Number: \`+${num}\``, '<blockquote>Group PFP features are now active.</blockquote>'), { parse_mode: 'HTML', reply_markup: K.back('owner') });
       },
     });
   } catch (e) {
     logger.error('Owner WA pair code: ' + e.message);
     try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); } catch {}
-    await ctx.reply(ui.error('Pairing Failed', e.message), { parse_mode: 'Markdown', reply_markup: K.back('owner') });
+    await ctx.reply(ui.error('Pairing Failed', e.message), { parse_mode: 'HTML', reply_markup: K.back('owner') });
   }
 }
 
 async function ownerWaPairQR(ctx, bot) {
   const QRCode = require('qrcode');
   const num = config.ownerWaNumber;
-  const wait = await ctx.editMessageText(ui.loading(`Generating QR code for owner WA \`+${num}\`...`), { parse_mode: 'Markdown' })
-    .catch(() => ctx.reply(ui.loading(`Generating QR code for owner WA \`+${num}\`...`), { parse_mode: 'Markdown' }));
+  const wait = await ctx.editMessageText(ui.loading(`Generating QR code for owner WA \`+${num}\`...`), { parse_mode: 'HTML' })
+    .catch(() => ctx.reply(ui.loading(`Generating QR code for owner WA \`+${num}\`...`), { parse_mode: 'HTML' }));
 
   let qrSent = false;
 
@@ -378,12 +384,8 @@ async function ownerWaPairQR(ctx, bot) {
           await ctx.replyWithPhoto(
             { source: qrBuffer },
             {
-              caption: [
-                ui.screenHeader(config.bot.name, 'Owner WA QR Code', `+${num}`),
-                '',
-                '> Scan in WhatsApp → Linked Devices'
-              ].join('\n'),
-              parse_mode: 'Markdown',
+              caption: ui.qrCaption(num),
+              parse_mode: 'HTML',
             }
           );
         } catch (e) {
@@ -393,18 +395,18 @@ async function ownerWaPairQR(ctx, bot) {
       onConnected: async () => {
         const { setupGroupEventListeners } = require('../services/ownerWhatsapp');
         setupGroupEventListeners(bot);
-        await ctx.reply(ui.success('Owner WA Connected!', `Number: \`+${num}\``, '> Group PFP features are now active.'), { parse_mode: 'Markdown', reply_markup: K.back('owner') });
+        await ctx.reply(ui.success('Owner WA Connected!', `Number: \`+${num}\``, '<blockquote>Group PFP features are now active.</blockquote>'), { parse_mode: 'HTML', reply_markup: K.back('owner') });
       },
     });
   } catch (e) {
     logger.error('Owner WA pair QR: ' + e.message);
     try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); } catch {}
-    await ctx.reply(ui.error('QR Pairing Failed', e.message), { parse_mode: 'Markdown', reply_markup: K.back('owner') });
+    await ctx.reply(ui.error('QR Pairing Failed', e.message), { parse_mode: 'HTML', reply_markup: K.back('owner') });
   }
 }
 
 async function restart(ctx) {
-  await ctx.editMessageText('♻️ *Restarting...*', { parse_mode: 'Markdown' }).catch(() => {});
+  await ctx.editMessageText('♻️ <b>Restarting...</b>', { parse_mode: 'HTML' }).catch(() => {});
   logger.info('Restart requested by owner');
   setTimeout(() => process.exit(0), 500);
 }
@@ -415,7 +417,7 @@ async function promoPanel(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Promotion Manager'),
     '',
-    '> These buttons appear on every Daily Drop.',
+    '<blockquote>These buttons appear on every Daily Drop.</blockquote>',
     `> *${links.filter(l => l.isEnabled).length}/${links.length}* enabled`
   ].join('\n');
 
@@ -431,8 +433,8 @@ async function promoPanel(ctx) {
   btns.push([btn('➕ Add Button', 'promo_add', SUCCESS)]);
   btns.push([btn('‹ Back', 'owner', PRIMARY)]);
 
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }));
 }
 
 async function promoAddPrompt(ctx) {
@@ -440,32 +442,32 @@ async function promoAddPrompt(ctx) {
   const text = [
     ui.screenHeader(config.bot.name, 'Add Promotion Button'),
     '',
-    '> Step 1/2: Send the button label',
-    '> Example: `📢 Join WhatsApp`'
+    '<blockquote>Step 1/2: Send the button label</blockquote>',
+    '<blockquote>Example: `📢 Join WhatsApp`</blockquote>'
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown' }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML' }));
 }
 
 async function promoAddLabel(ctx) {
   const label = ctx.message.text?.trim();
-  if (!label) return ctx.reply(ui.error('Invalid', 'Send a button label.'), { parse_mode: 'Markdown' });
+  if (!label) return ctx.reply(ui.error('Invalid', 'Send a button label.'), { parse_mode: 'HTML' });
   ctx.setState({ step: 'promo_add_url', promoLabel: label });
   const text = [
     `*Step 2/2: Send the URL*`,
     `> Example: \`https://t.me/yourchannel\``
   ].join('\n');
-  await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } });
+  await ctx.reply(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } });
 }
 
 async function promoAddUrl(ctx) {
   const { promoLabel } = ctx.userState;
   clearState(ctx.from.id);
   const url = ctx.message.text?.trim();
-  if (!url?.startsWith('http')) return ctx.reply(ui.error('Invalid URL', 'Must start with http.'), { parse_mode: 'Markdown' });
+  if (!url?.startsWith('http')) return ctx.reply(ui.error('Invalid URL', 'Must start with http.'), { parse_mode: 'HTML' });
   const count = await PromotionLink.countDocuments();
   await PromotionLink.create({ label: promoLabel, url, order: count });
-  await ctx.reply(ui.success('Button Added', `*${promoLabel}*`), { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[btn('‹ Back to Promo', 'o_promo', PRIMARY)]] } });
+  await ctx.reply(ui.success('Button Added', `*${promoLabel}*`), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('‹ Back to Promo', 'o_promo', PRIMARY)]] } });
 }
 
 async function promoToggle(ctx, id) {
@@ -493,10 +495,10 @@ async function promoEditPrompt(ctx, id) {
     `> Current label: \`${link.label}\``,
     `> Current URL: \`${link.url}\``,
     '',
-    '> Send new label (or send `-` to keep current):'
+    '<blockquote>Send new label (or send `-` to keep current):</blockquote>'
   ].join('\n');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown' }));
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('❌ Cancel', 'o_promo', DANGER)]] } })
+    .catch(() => ctx.reply(text, { parse_mode: 'HTML' }));
 }
 
 async function promoEditLabel(ctx) {
@@ -504,7 +506,7 @@ async function promoEditLabel(ctx) {
   const input = ctx.message.text?.trim();
   const newLabel = input === '-' ? promoLabel : input;
   ctx.setState({ step: 'promo_edit_url', promoId, promoLabel: newLabel });
-  await ctx.reply(`> Send new URL (or \`-\` to keep current):`, { parse_mode: 'Markdown' });
+  await ctx.reply(`> Send new URL (or \`-\` to keep current):`, { parse_mode: 'HTML' });
 }
 
 async function promoEditUrl(ctx) {
@@ -514,12 +516,12 @@ async function promoEditUrl(ctx) {
   if (!link) return ctx.reply('Not found.');
   const input = ctx.message.text?.trim();
   if (input !== '-') {
-    if (!input.startsWith('http')) return ctx.reply(ui.error('Invalid URL', 'Must start with http.'), { parse_mode: 'Markdown' });
+    if (!input.startsWith('http')) return ctx.reply(ui.error('Invalid URL', 'Must start with http.'), { parse_mode: 'HTML' });
     link.url = input;
   }
   link.label = promoLabel;
   await link.save();
-  await ctx.reply(ui.success('Button Updated', `*${link.label}*`), { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[btn('‹ Back to Promo', 'o_promo', PRIMARY)]] } });
+  await ctx.reply(ui.success('Button Updated', `*${link.label}*`), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('‹ Back to Promo', 'o_promo', PRIMARY)]] } });
 }
 
 async function settingsPanel(ctx) {

@@ -2,8 +2,9 @@ import { useState, useRef } from "react";
 import { useWizard } from "./wizard-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, Image as ImageIcon, Loader2 } from "lucide-react";
-import { useUploadImage } from "@workspace/api-client-react";
+import { UploadCloud, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import type { ImageInfo } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
 
 export default function StepUpload() {
@@ -11,30 +12,33 @@ export default function StepUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  
-  const uploadMutation = useUploadImage();
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File): Promise<ImageInfo> => {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/pfp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Upload failed");
+      }
+      return res.json();
+    },
+  });
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({ title: "Invalid file", description: "Please upload an image file (PNG, JPG, WEBP).", variant: "destructive" });
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Maximum file size is 10MB.", variant: "destructive" });
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const response = await uploadMutation.mutateAsync({ data: formData as any });
+      const response = await uploadMutation.mutateAsync(file);
       setUploadState(response.id, response);
       setStep(2);
     } catch (err: any) {
       toast({ 
         title: "Upload failed", 
-        description: err.response?.data?.error || "Failed to upload image. Please try again.", 
+        description: err.message || "Failed to upload image. Please try again.", 
         variant: "destructive" 
       });
     }
@@ -74,7 +78,7 @@ export default function StepUpload() {
       <CardHeader className="text-center pb-2">
         <CardTitle className="text-3xl">Upload Your Photo</CardTitle>
         <CardDescription className="text-base text-white/60">
-          Drag and drop, paste from clipboard, or click to browse.
+          Drag and drop, paste from clipboard, or click to browse. Any size accepted.
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
@@ -107,8 +111,8 @@ export default function StepUpload() {
           <h3 className="text-xl font-display font-semibold mb-2 text-white">
             {uploadMutation.isPending ? "Uploading..." : "Click or drag image here"}
           </h3>
-          <p className="text-sm text-white/40 mb-6 text-center max-w-[250px]">
-            PNG, JPG or WEBP. Max 10MB.<br/>Square images work best.
+          <p className="text-sm text-white/40 mb-6 text-center max-w-[260px]">
+            PNG, JPG or WEBP — any size welcome.<br/>Square images look best on WhatsApp.
           </p>
           
           <Button type="button" variant={isDragging ? "default" : "secondary"} className="pointer-events-none">

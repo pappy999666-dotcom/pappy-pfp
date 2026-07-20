@@ -53,3 +53,15 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Runtime data
+src/data/
+src/data/wallpapers/
+src/data/images/
+src/data/sessions/
+
+# Fix/utility scripts
+fix_*.py
+fix_*.js
+test_*.js
+validate_*.py

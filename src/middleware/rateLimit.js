@@ -25,7 +25,7 @@ function rateLimitMiddleware() {
     if (window.count > cfg.maxRequests) {
       await ctx.reply(
         ui.warn('Slow Down', 'You are sending requests too fast. Please wait a moment.'),
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       );
       return; // Don't call next()
     }

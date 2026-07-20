@@ -18,13 +18,13 @@ async function start(ctx) {
     const text = [
       ui.screenHeader(config.bot.name, 'Pair WhatsApp Account'),
       '',
-      '> Send your WhatsApp number with country code.',
+      '<blockquote>Send your WhatsApp number with country code.</blockquote>',
       '',
       ui.italic('Example: `+1234567890`')
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') }));
   } catch (err) {
     return eh.handle(ctx, err, 'pair_start', 'main_menu');
   }
@@ -36,7 +36,7 @@ async function handlePhone(ctx, phone, bot) {
     const num = formatPhoneNumber(phone);
 
     if (!isValidPhoneNumber(phone)) {
-      return ctx.reply(ui.warn('Invalid Number', 'Include country code, e.g. `+12345678900`'), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.warn('Invalid Number', 'Include country code, e.g. `+12345678900`'), { parse_mode: 'HTML' });
     }
 
     const existing = await Session.findOne({ telegramId: tid, whatsappNumber: num });
@@ -48,11 +48,11 @@ async function handlePhone(ctx, phone, bot) {
         ui.stat('📱', 'Number', `+${num}`),
         ui.stat('📊', 'Status', status),
         '',
-        '> Do you want to delete this session and re-pair?'
+        '<blockquote>Do you want to delete this session and re-pair?</blockquote>'
       ].join('\n');
       
       return ctx.reply(text, {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [
           [btn('🗑️  Yes — Delete & Re-Pair', `pair_delete:${num}`, DANGER)],
           [btn('↩️  No — Keep Session',       'paired',            SUCCESS)],
@@ -64,7 +64,7 @@ async function handlePhone(ctx, phone, bot) {
     if (existingCount >= config.limits.maxPairedAccounts) {
       return ctx.reply(
         ui.error('Limit Reached', `Maximum ${config.limits.maxPairedAccounts} paired accounts reached.`, 'Remove one first.'),
-        { parse_mode: 'Markdown', reply_markup: K.backMain() }
+        { parse_mode: 'HTML', reply_markup: K.backMain() }
       );
     }
 
@@ -73,11 +73,11 @@ async function handlePhone(ctx, phone, bot) {
       ui.screenHeader('Pair WhatsApp', 'Link Device'),
       ui.stat('📱', 'Number', `+${num}`),
       '',
-      '> Choose how to link this number:'
+      '<blockquote>Choose how to link this number:</blockquote>'
     ].join('\n');
     
     await ctx.reply(text, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('🔢  Pair with Code', `pair_code:${num}`, SUCCESS)],
         [btn('📷  Pair with QR',   `pair_qr:${num}`,   SUCCESS)],
@@ -106,7 +106,7 @@ async function deleteAndRepair(ctx, num) {
     const text = [
       ui.success('Session Deleted', `Account +${num} removed.`),
       '',
-      '> Now choose how to re-link:'
+      '<blockquote>Now choose how to re-link:</blockquote>'
     ].join('\n');
     
     const markup = { inline_keyboard: [
@@ -114,8 +114,8 @@ async function deleteAndRepair(ctx, num) {
       [btn('📷  Pair with QR',   `pair_qr:${num}`,   SUCCESS)],
       [btn('❌  Cancel',          'main_menu',        DANGER)],
     ]};
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: markup })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: markup }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: markup })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: markup }));
   } catch (err) {
     return eh.handle(ctx, err, 'repair', 'main_menu');
   }
@@ -126,8 +126,8 @@ async function doPairCode(ctx, num, bot) {
   try {
     const tid = String(ctx.from.id);
     clearState(ctx.from.id);
-    wait = await ctx.editMessageText(ui.loading(`Connecting \`+${num}\` via pairing code...`), { parse_mode: 'Markdown' })
-      .catch(() => ctx.reply(ui.loading(`Connecting \`+${num}\` via pairing code...`), { parse_mode: 'Markdown' }));
+    wait = await ctx.editMessageText(ui.loading(`Connecting \`+${num}\` via pairing code...`), { parse_mode: 'HTML' })
+      .catch(() => ctx.reply(ui.loading(`Connecting \`+${num}\` via pairing code...`), { parse_mode: 'HTML' }));
 
     await createWhatsAppSession(tid, num, {
       onCode: async code => {
@@ -139,20 +139,10 @@ async function doPairCode(ctx, num, bot) {
           try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); wait = null; } catch {}
         }
         
-        const text = [
-          ui.screenHeader('Pairing Code', `+${num}`),
-          '',
-          '> 🔐 *Your Pairing Code:*',
-          `> \`${formatted}\``,
-          '> ',
-          '> Open WhatsApp → Linked Devices → Link a Device',
-          '> → Link with phone number → Enter this code',
-          '',
-          '⏳ _Code expires in ~60 seconds_'
-        ].join('\n');
+        const text = ui.pairingCodeMessage(num, formatted);
         
         await ctx.reply(text, {
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: { inline_keyboard: [
             [btn(`🔑  Copy Code: ${formatted}`, null, SUCCESS, { copy_text: { text: formatted } })],
             [btn('🏠  Main Menu', 'main_menu', PRIMARY)],
@@ -172,16 +162,16 @@ async function doPairCode(ctx, num, bot) {
           ui.stat('📱', 'Number', `+${num}`),
           ui.stat('👤', 'Name', info?.name || 'Unknown'),
           '',
-          '> What would you like to do next?'
+          '<blockquote>What would you like to do next?</blockquote>'
         ].join('\n');
         
-        await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.afterPair(num) });
+        await ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.afterPair(num) });
       },
       onDisconnected: async (reconnect, code) => {
         if (!reconnect) {
           await ctx.reply(
             ui.error('Session Ended', `You were logged out from +${num}.`, 'Pair again to continue.'),
-            { parse_mode: 'Markdown', reply_markup: K.backMain() }
+            { parse_mode: 'HTML', reply_markup: K.backMain() }
           );
         }
       },
@@ -191,7 +181,7 @@ async function doPairCode(ctx, num, bot) {
       try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); } catch {}
     }
     logger.error('Pairing code: ' + err.message);
-    await ctx.reply(ui.error('Pairing Failed', err.message, 'Please try again.'), { parse_mode: 'Markdown', reply_markup: K.backMain() });
+    await ctx.reply(ui.error('Pairing Failed', err.message, 'Please try again.'), { parse_mode: 'HTML', reply_markup: K.backMain() });
   }
 }
 
@@ -201,8 +191,8 @@ async function doPairQR(ctx, num, bot) {
   try {
     const tid = String(ctx.from.id);
     clearState(ctx.from.id);
-    wait = await ctx.editMessageText(ui.loading(`Generating QR code for \`+${num}\`...`), { parse_mode: 'Markdown' })
-      .catch(() => ctx.reply(ui.loading(`Generating QR code for \`+${num}\`...`), { parse_mode: 'Markdown' }));
+    wait = await ctx.editMessageText(ui.loading(`Generating QR code for \`+${num}\`...`), { parse_mode: 'HTML' })
+      .catch(() => ctx.reply(ui.loading(`Generating QR code for \`+${num}\`...`), { parse_mode: 'HTML' }));
 
     await createWhatsAppSession(tid, num, {
       onQR: async qr => {
@@ -213,16 +203,9 @@ async function doPairQR(ctx, num, bot) {
           if (wait) {
             try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); wait = null; } catch {}
           }
-          
-          const text = [
-            ui.screenHeader(config.bot.name, 'QR Code', `+${num}`),
-            '',
-            '> Scan this QR code in WhatsApp → Linked Devices'
-          ].join('\n');
-          
           await ctx.replyWithPhoto(
             { source: qrBuffer },
-            { caption: text, parse_mode: 'Markdown' }
+            { caption: ui.qrCaption(num), parse_mode: 'HTML' }
           );
         } catch (e) {
           logger.warn('QR send failed: ' + e.message);
@@ -241,16 +224,16 @@ async function doPairQR(ctx, num, bot) {
           ui.stat('📱', 'Number', `+${num}`),
           ui.stat('👤', 'Name', info?.name || 'Unknown'),
           '',
-          '> What would you like to do next?'
+          '<blockquote>What would you like to do next?</blockquote>'
         ].join('\n');
         
-        await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.afterPair(num) });
+        await ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.afterPair(num) });
       },
       onDisconnected: async (reconnect, code) => {
         if (!reconnect) {
           await ctx.reply(
             ui.error('Session Ended', `You were logged out from +${num}.`, 'Pair again to continue.'),
-            { parse_mode: 'Markdown', reply_markup: K.backMain() }
+            { parse_mode: 'HTML', reply_markup: K.backMain() }
           );
         }
       },
@@ -260,7 +243,7 @@ async function doPairQR(ctx, num, bot) {
       try { await ctx.telegram.deleteMessage(ctx.chat.id, wait.message_id); } catch {}
     }
     logger.error('Pairing QR: ' + err.message);
-    await ctx.reply(ui.error('QR Pairing Failed', err.message, 'Please try again.'), { parse_mode: 'Markdown', reply_markup: K.backMain() });
+    await ctx.reply(ui.error('QR Pairing Failed', err.message, 'Please try again.'), { parse_mode: 'HTML', reply_markup: K.backMain() });
   }
 }
 

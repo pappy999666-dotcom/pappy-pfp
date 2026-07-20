@@ -20,14 +20,14 @@ async function start(ctx) {
         ui.warn('Service Offline', `The ${config.bot.name} Assistant is currently offline.`),
         'Please try again later or contact support.'
       ].join('\n');
-      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.backMain() })
-        .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.backMain() }));
+      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.backMain() })
+        .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.backMain() }));
     }
 
     const text = [
       ui.screenHeader(config.bot.name, 'Change Group PFP'),
       '',
-      '> Choose an option:',
+      '<blockquote>Choose an option:</blockquote>',
       '',
       '*⚡ Immediate Change*',
       'Change the group PFP right now',
@@ -36,8 +36,8 @@ async function start(ctx) {
       `Auto-change daily for up to ${config.limits.maxGroupPfpDays} days`
     ].join('\n');
 
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.groupPfpMenu() })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.groupPfpMenu() }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.groupPfpMenu() })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.groupPfpMenu() }));
   } catch (err) {
     return eh.handle(ctx, err, 'group_pfp_start', 'main_menu');
   }
@@ -49,13 +49,13 @@ async function immediateStart(ctx) {
     const text = [
       ui.screenHeader('Immediate Change', 'Step 1/2'),
       '',
-      '> Send the image you want to set as the group profile picture.',
+      '<blockquote>Send the image you want to set as the group profile picture.</blockquote>',
       '',
       '✨ Full HD — No cropping'
     ].join('\n');
 
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('group_pfp') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('group_pfp') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('group_pfp') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('group_pfp') }));
   } catch (err) {
     return eh.handle(ctx, err, 'gpfp_immediate', 'group_pfp');
   }
@@ -70,8 +70,8 @@ async function scheduledStart(ctx) {
       `> How many days? (Maximum: ${config.limits.maxGroupPfpDays})`
     ].join('\n');
 
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('group_pfp') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('group_pfp') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('group_pfp') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('group_pfp') }));
   } catch (err) {
     return eh.handle(ctx, err, 'gpfp_scheduled', 'group_pfp');
   }
@@ -81,7 +81,7 @@ async function handleDays(ctx) {
   try {
     const n = parseInt(ctx.message.text?.trim());
     if (isNaN(n) || n < 1 || n > config.limits.maxGroupPfpDays) {
-      return ctx.reply(ui.warn('Invalid Input', `Enter a number between 1 and ${config.limits.maxGroupPfpDays}.`), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.warn('Invalid Input', `Enter a number between 1 and ${config.limits.maxGroupPfpDays}.`), { parse_mode: 'HTML' });
     }
 
     ctx.setState({ ...ctx.userState, step: 'gpfp_images', totalDays: n, images: [], required: n });
@@ -94,7 +94,7 @@ async function handleDays(ctx) {
       'Send them one by one.'
     ].join('\n');
 
-    await ctx.reply(text, { parse_mode: 'Markdown' });
+    await ctx.reply(text, { parse_mode: 'HTML' });
   } catch (err) {
     return eh.handle(ctx, err, 'gpfp_days', 'group_pfp');
   }
@@ -111,7 +111,7 @@ async function handleImage(ctx, bot) {
 
     if (doc?.mime_type?.startsWith('image/')) fid = doc.file_id;
     else if (photo) fid = photo[photo.length - 1].file_id;
-    else return ctx.reply(ui.warn('Invalid File', 'Please send an image file.'), { parse_mode: 'Markdown' });
+    else return ctx.reply(ui.warn('Invalid File', 'Please send an image file.'), { parse_mode: 'HTML' });
 
     const tempId = `temp_${Date.now()}`;
     const dir = getGroupPfpDir(tid, tempId);
@@ -124,12 +124,12 @@ async function handleImage(ctx, bot) {
       const text = [
         ui.success('Image Received'),
         '',
-        '> Step 2: Send the WhatsApp Group invite link.',
+        '<blockquote>Step 2: Send the WhatsApp Group invite link.</blockquote>',
         '',
-        ui.italic('Example: `https://chat.whatsapp.com/ABC123...`')
+        ui.italic('Example: <code>https://chat.whatsapp.com/ABC123...</code>')
       ].join('\n');
       
-      await ctx.reply(text, { parse_mode: 'Markdown' });
+      await ctx.reply(text, { parse_mode: 'HTML' });
       return;
     }
 
@@ -137,19 +137,19 @@ async function handleImage(ctx, bot) {
     ctx.setState({ ...ctx.userState, images: currentImages });
 
     if (currentImages.length < needed) {
-      return ctx.reply(ui.taskProgress('Images received', currentImages.length, needed), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.taskProgress('Images received', currentImages.length, needed), { parse_mode: 'HTML' });
     }
 
     ctx.setState({ ...ctx.userState, step: 'gpfp_link', images: currentImages });
     const text = [
       ui.success('All Images Received'),
       '',
-      '> Step 3: Send the WhatsApp Group invite link.',
+      '<blockquote>Step 3: Send the WhatsApp Group invite link.</blockquote>',
       '',
-      ui.italic('Example: `https://chat.whatsapp.com/ABC123...`')
+      ui.italic('Example: <code>https://chat.whatsapp.com/ABC123...</code>')
     ].join('\n');
     
-    await ctx.reply(text, { parse_mode: 'Markdown' });
+    await ctx.reply(text, { parse_mode: 'HTML' });
   } catch (err) {
     return eh.handle(ctx, err, 'gpfp_image', 'group_pfp');
   }
@@ -163,12 +163,12 @@ async function handleLink(ctx, bot) {
     const link = ctx.message.text?.trim();
 
     if (!isValidWaGroupLink(link)) {
-      return ctx.reply(ui.warn('Invalid Link', 'Send a valid link like: `https://chat.whatsapp.com/ABC123...`'), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.warn('Invalid Link', 'Send a valid link like: <code>https://chat.whatsapp.com/ABC123...</code>'), { parse_mode: 'HTML' });
     }
 
     const inviteCode = extractGroupId(link);
     if (!inviteCode) {
-      return ctx.reply(ui.warn('Invalid Link', 'Could not extract group invite code.'), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.warn('Invalid Link', 'Could not extract group invite code.'), { parse_mode: 'HTML' });
     }
 
     clearState(ctx.from.id);
@@ -177,13 +177,13 @@ async function handleLink(ctx, bot) {
     const text = [
       ui.screenHeader(config.bot.name, 'Group Setup'),
       '',
-      '> Connecting to group...',
+      '<blockquote>Connecting to group...</blockquote>',
       '',
       ui.stat('🤖', 'Assistant', `${config.bot.name} Assistant`),
       ui.stat('📱', 'Number', `+${ownerNum}`)
     ].join('\n');
 
-    liveMsg = await ctx.reply(text, { parse_mode: 'Markdown' });
+    liveMsg = await ctx.reply(text, { parse_mode: 'HTML' });
 
     const liveLogMsgId = liveMsg.message_id;
     const liveLogChatId = String(ctx.chat.id);
@@ -201,7 +201,7 @@ async function handleLink(ctx, bot) {
     if (liveMsg) {
       await bot.telegram.editMessageText(ctx.chat.id, liveMsg.message_id, null,
         ui.error('Task Failed', err.message),
-        { parse_mode: 'Markdown', reply_markup: K.backMain() }
+        { parse_mode: 'HTML', reply_markup: K.backMain() }
       ).catch(() => {});
     }
   }
@@ -231,9 +231,9 @@ async function listTasks(ctx) {
       const text = [
         ui.screenHeader(config.bot.name, 'Active Tasks'),
         '',
-        '> You have no active group PFP tasks.'
+        '<blockquote>You have no active group PFP tasks.</blockquote>'
       ].join('\n');
-      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('group_pfp') }).catch(() => {});
+      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('group_pfp') }).catch(() => {});
     }
 
     const lines = tasks.map((t, i) => {
@@ -253,7 +253,7 @@ async function listTasks(ctx) {
       lines
     ].join('\n');
 
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }).catch(() => {});
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
   } catch (err) {
     return eh.handle(ctx, err, 'list_tasks', 'group_pfp');
   }

@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "react-day-picker";
+import { Button } from "@/components/ui/button";
 
 const STEPS = [
   { id: 1, label: "Initializing" },
@@ -34,11 +34,11 @@ export default function StepProgress() {
     // If we just entered this step and session is paired, kick off the apply mutation
     if (statusInfo?.status === 'paired' && !applyInitiatedRef.current && sessionId) {
       applyInitiatedRef.current = true;
-      applyPictureMutation.mutate({ params: { sessionId } }, {
+      applyPictureMutation.mutate({ sessionId }, {
         onError: (err: any) => {
           toast({ 
             title: "Update Failed", 
-            description: err.response?.data?.error || "Failed to apply picture.", 
+            description: err.message || "Failed to apply picture.", 
             variant: "destructive" 
           });
         }

@@ -1,10 +1,19 @@
 import { Link } from "wouter";
 import { Zap, Volume2, VolumeX } from "lucide-react";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Button } from "../ui/button";
 
-export function Navbar() {
+// Global sound context so any step can check if sound is enabled
+const SoundContext = createContext({ soundOn: true, setSoundOn: (_: boolean) => {} });
+export const useSoundContext = () => useContext(SoundContext);
+
+export function SoundProvider({ children }: { children: React.ReactNode }) {
   const [soundOn, setSoundOn] = useState(true);
+  return <SoundContext.Provider value={{ soundOn, setSoundOn }}>{children}</SoundContext.Provider>;
+}
+
+export function Navbar() {
+  const { soundOn, setSoundOn } = useSoundContext();
 
   return (
     <header className="fixed top-0 w-full z-50 glass-card border-b border-white/5 bg-[#0A0E1A]/60">
@@ -17,17 +26,18 @@ export function Navbar() {
             Pappy<span className="text-primary">PFP</span>
           </span>
         </Link>
-        
+
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="rounded-full w-10 h-10 border-0 bg-white/5 hover:bg-white/10"
             onClick={() => setSoundOn(!soundOn)}
+            title={soundOn ? "Mute sounds" : "Enable sounds"}
           >
             {soundOn ? <Volume2 className="w-4 h-4 text-white/70" /> : <VolumeX className="w-4 h-4 text-white/40" />}
           </Button>
-          <Link href="/app" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 font-display bg-primary text-primary-foreground hover:bg-primary/90 glow-cyan h-10 px-4 py-2">
+          <Link href="/app" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium font-display bg-primary text-primary-foreground hover:bg-primary/90 glow-cyan h-10 px-4 py-2">
             Open App
           </Link>
         </div>

@@ -49,7 +49,7 @@ async function start(ctx) {
     const text = [
       ui.screenHeader(config.bot.name, 'Media Downloader'),
       '',
-      '> Choose a platform or use *Auto Detect* to paste any URL.',
+      '<blockquote>Choose a platform or use <b>Auto Detect</b> to paste any URL.</blockquote>',
       '',
       '*Supported Platforms:*',
       'Pinterest, TikTok, Instagram, Facebook, Twitter/X, YouTube, Threads, Reddit',
@@ -57,8 +57,8 @@ async function start(ctx) {
       ui.italic('Tip: You can also use /download <url>')
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.downloadMenu() })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.downloadMenu() }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.downloadMenu() })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.downloadMenu() }));
   } catch (err) {
     return eh.handle(ctx, err, 'download_start', 'main_menu');
   }
@@ -68,11 +68,11 @@ async function promptUrl(ctx, platform) {
   try {
     ctx.setState({ step: 'dl_url', platform: platform || 'auto' });
     const text = platform
-      ? [ui.screenHeader('Download', platform), '', '> Send the URL you want to download.'].join('\n')
-      : [ui.screenHeader('Download', 'Auto Detect'), '', '> Paste any media URL to download.'].join('\n');
+      ? [ui.screenHeader('Download', platform), '', '<blockquote>Send the URL you want to download.</blockquote>'].join('\n')
+      : [ui.screenHeader('Download', 'Auto Detect'), '', '<blockquote>Paste any media URL to download.</blockquote>'].join('\n');
       
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('download') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('download') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('download') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('download') }));
   } catch (err) {
     return eh.handle(ctx, err, 'download_prompt', 'download');
   }
@@ -84,14 +84,14 @@ async function handleUrl(ctx, url, bot) {
     clearState(ctx.from.id);
 
     if (!url || !url.startsWith('http')) {
-      return ctx.reply(ui.warn('Invalid URL', 'Please send a valid URL starting with http:// or https://'), { parse_mode: 'Markdown', reply_markup: K.backMain() });
+      return ctx.reply(ui.warn('Invalid URL', 'Please send a valid URL starting with http:// or https://'), { parse_mode: 'HTML', reply_markup: K.backMain() });
     }
 
     const platform = detectPlatform(url);
     const queuePos = downloadQueue.pending + downloadQueue.active;
     const progressLabel = queuePos > 0 ? `Waiting in queue (${queuePos} ahead)` : 'Fetching media...';
     
-    msg = await ctx.reply(ui.taskProgress(progressLabel, 0, 100), { parse_mode: 'Markdown' });
+    msg = await ctx.reply(ui.taskProgress(progressLabel, 0, 100), { parse_mode: 'HTML' });
 
     downloadQueue.run(async () => {
       try {
@@ -101,7 +101,7 @@ async function handleUrl(ctx, url, bot) {
           if (msg) {
             await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
               ui.error('Download Failed', result.error),
-              { parse_mode: 'Markdown', reply_markup: K.back('download') }
+              { parse_mode: 'HTML', reply_markup: K.back('download') }
             );
           }
           return;
@@ -111,7 +111,7 @@ async function handleUrl(ctx, url, bot) {
 
         const media = result.media || [];
         if (!media.length) {
-          return ctx.reply(ui.info('No Media', 'No media found at this URL.'), { parse_mode: 'Markdown', reply_markup: K.back('download') });
+          return ctx.reply(ui.info('No Media', 'No media found at this URL.'), { parse_mode: 'HTML', reply_markup: K.back('download') });
         }
 
         let sent = 0;
@@ -132,7 +132,7 @@ async function handleUrl(ctx, url, bot) {
             const mediaGroup = photos.slice(0, 10).map(({ item }, gi) => ({
               type: 'photo',
               media: item.url,
-              ...(gi === 0 ? { caption: `*${result.platform}* - ${media.length} item(s)`, parse_mode: 'Markdown' } : {}),
+              ...(gi === 0 ? { caption: `*${result.platform}* - ${media.length} item(s)`, parse_mode: 'HTML' } : {}),
             }));
             try {
               await ctx.replyWithMediaGroup(mediaGroup);
@@ -153,25 +153,25 @@ async function handleUrl(ctx, url, bot) {
           if (ok) {
             sent = 1;
           } else {
-            await ctx.reply(ui.error('Download Failed', 'Could not send the media.', 'Try again later.'), { parse_mode: 'Markdown', reply_markup: K.back('download') });
+            await ctx.reply(ui.error('Download Failed', 'Could not send the media.', 'Try again later.'), { parse_mode: 'HTML', reply_markup: K.back('download') });
           }
         }
 
         if (sent > 0) {
-          await ctx.reply(ui.success('Download Complete', `Downloaded ${sent} item(s) from ${result.platform}`), { parse_mode: 'Markdown', reply_markup: K.back('download') });
+          await ctx.reply(ui.success('Download Complete', `Downloaded ${sent} item(s) from ${result.platform}`), { parse_mode: 'HTML', reply_markup: K.back('download') });
         }
       } catch (e) {
         logger.error('Download handler: ' + e.message);
         if (msg) {
           await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
             ui.error('Download Error', e.message),
-            { parse_mode: 'Markdown', reply_markup: K.back('download') }
+            { parse_mode: 'HTML', reply_markup: K.back('download') }
           ).catch(() => {});
         }
       }
     }).catch(e => {
       logger.error('Download queue: ' + e.message);
-      ctx.reply(ui.error('Download Failed', 'Internal error occurred.'), { parse_mode: 'Markdown', reply_markup: K.back('download') }).catch(() => {});
+      ctx.reply(ui.error('Download Failed', 'Internal error occurred.'), { parse_mode: 'HTML', reply_markup: K.back('download') }).catch(() => {});
     });
   } catch (err) {
     if (msg) await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});

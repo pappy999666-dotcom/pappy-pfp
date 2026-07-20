@@ -42,13 +42,13 @@ async function forwardToOwner(bot, ticket, { text, fileId, fileType }) {
   for (const oid of config.ownerIds) {
     try {
       if (text && !fileId) {
-        await bot.telegram.sendMessage(oid, header + text, { parse_mode: 'Markdown', reply_markup: kb });
+        await bot.telegram.sendMessage(oid, header + text, { parse_mode: 'HTML', reply_markup: kb });
       } else if (fileType === 'photo') {
-        await bot.telegram.sendPhoto(oid, fileId, { caption: header + (text || ''), parse_mode: 'Markdown', reply_markup: kb });
+        await bot.telegram.sendPhoto(oid, fileId, { caption: header + (text || ''), parse_mode: 'HTML', reply_markup: kb });
       } else if (fileType === 'video') {
-        await bot.telegram.sendVideo(oid, fileId, { caption: header + (text || ''), parse_mode: 'Markdown', reply_markup: kb });
+        await bot.telegram.sendVideo(oid, fileId, { caption: header + (text || ''), parse_mode: 'HTML', reply_markup: kb });
       } else if (fileType === 'document') {
-        await bot.telegram.sendDocument(oid, fileId, { caption: header + (text || ''), parse_mode: 'Markdown', reply_markup: kb });
+        await bot.telegram.sendDocument(oid, fileId, { caption: header + (text || ''), parse_mode: 'HTML', reply_markup: kb });
       }
     } catch (e) { logger.warn('Forward to owner: ' + e.message); }
   }
@@ -56,7 +56,7 @@ async function forwardToOwner(bot, ticket, { text, fileId, fileType }) {
 
 async function replyToUser(bot, tid, text) {
   await bot.telegram.sendMessage(String(tid),
-    `*Support Reply:*\n\n${text}`, { parse_mode: 'Markdown' });
+    `*Support Reply:*\n\n${text}`, { parse_mode: 'HTML' });
 }
 
 module.exports = { addUserMsg, addOwnerReply, closeTicket, forwardToOwner, replyToUser };

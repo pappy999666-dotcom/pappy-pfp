@@ -135,10 +135,10 @@ async function handle(ctx, err, scope = 'unknown', retryAction = null) {
     }
     // Try to edit if in a callback, otherwise send new message
     if (ctx.callbackQuery?.message) {
-      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard })
-        .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard }));
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard })
+        .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }));
     } else {
-      await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     }
   } catch (sendErr) {
     logger.error(`[${id}] Could not send error message: ${sendErr.message}`);

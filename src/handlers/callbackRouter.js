@@ -31,8 +31,8 @@ async function route(ctx, bot) {
       const msg = await sm.get('maintenance.message');
       return ctx.editMessageText(
         ui.warn('Maintenance Mode', msg || 'Back soon!'),
-        { parse_mode: 'Markdown' }
-      ).catch(() => ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' }));
+        { parse_mode: 'HTML' }
+      ).catch(() => ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'HTML' }));
     }
 
     if (data !== 'check_join' && data !== 'main_menu') {
@@ -43,11 +43,11 @@ async function route(ctx, bot) {
       const text = [
         ui.screenHeader(config.bot.name, 'Main Menu'),
         '',
-        '> Choose an option below:'
+        '<blockquote>Choose an option below:</blockquote>'
       ].join('\n');
       return ctx.editMessageText(text, {
-        parse_mode: 'Markdown', reply_markup: K.mainMenu(owner),
-      }).catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.mainMenu(owner) }));
+        parse_mode: 'HTML', reply_markup: K.mainMenu(owner),
+      }).catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.mainMenu(owner) }));
     }
 
     if (data === 'check_join') {
@@ -55,11 +55,11 @@ async function route(ctx, bot) {
         const text = [
           ui.success('Access Granted', 'Welcome to the bot!'),
           '',
-          '> Choose an option below:'
+          '<blockquote>Choose an option below:</blockquote>'
         ].join('\n');
         return ctx.editMessageText(text, {
-          parse_mode: 'Markdown', reply_markup: K.mainMenu(owner),
-        }).catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.mainMenu(owner) }));
+          parse_mode: 'HTML', reply_markup: K.mainMenu(owner),
+        }).catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.mainMenu(owner) }));
       }
       return;
     }
@@ -138,9 +138,9 @@ async function route(ctx, bot) {
       const text = [
         ui.screenHeader('Owner Panel', 'Settings & Advanced'),
         '',
-        '> System and WhatsApp connection settings.'
+        '<blockquote>System and WhatsApp connection settings.</blockquote>'
       ].join('\n');
-      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.ownerSettingsMenu() }).catch(() => {});
+      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.ownerSettingsMenu() }).catch(() => {});
     }
     if (data === 'o_stats') return ow.stats(ctx);
     if (data === 'o_users') return ow.users(ctx);
@@ -171,10 +171,10 @@ async function route(ctx, bot) {
         const text = [
           ui.error('WhatsApp Not Connected', 'Pair it first via Owner Panel → Pair Owner WA.', 'Or use: /jid <invite_link>')
         ].join('\n');
-        return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('o_settings') }).catch(() => {});
+        return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('o_settings') }).catch(() => {});
       }
       const sock = getOwnerSock();
-      const wait = await ctx.editMessageText(ui.loading('Fetching all groups & channels...'), { parse_mode: 'Markdown' }).catch(() => ctx.reply(ui.loading('Fetching...'), { parse_mode: 'Markdown' }));
+      const wait = await ctx.editMessageText(ui.loading('Fetching all groups & channels...'), { parse_mode: 'HTML' }).catch(() => ctx.reply(ui.loading('Fetching...'), { parse_mode: 'HTML' }));
       try {
         const chats = await sock.groupFetchAllParticipating();
         const entries = Object.values(chats);
@@ -192,12 +192,12 @@ async function route(ctx, bot) {
           lines.push(`*📢 Channels (${channels.length}):*`);
           for (const ch of channels) lines.push(`• *${ch.subject || 'Unnamed'}*\n  ${ui.codeBlock(ch.id)}`);
         }
-        if (!entries.length) lines.push('> _No groups or channels found._');
-        lines.push('', '> _Copy a JID and add it via Channel Management_');
+        if (!entries.length) lines.push('<blockquote>_No groups or channels found._</blockquote>');
+        lines.push('', '<blockquote>_Copy a JID and add it via Channel Management_</blockquote>');
         
         const out = lines.join('\n').slice(0, 4000);
         if (wait && wait.message_id) {
-          await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, out, { parse_mode: 'Markdown', reply_markup: K.back('o_settings') }).catch(() => ctx.reply(out, { parse_mode: 'Markdown' }));
+          await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, out, { parse_mode: 'HTML', reply_markup: K.back('o_settings') }).catch(() => ctx.reply(out, { parse_mode: 'HTML' }));
         }
       } catch (e) {
         return eh.handle(ctx, e, 'jid_lookup', 'o_settings');
@@ -211,13 +211,13 @@ async function route(ctx, bot) {
       const text = [
         ui.screenHeader('Owner Panel', 'Manual Drop'),
         '',
-        `> This will immediately drop wallpapers from all *40 categories* to all *${chatCount} chat${chatCount !== 1 ? 's' : ''}*.`,
+        `> This will immediately drop wallpapers from all <b>40 categories</b> to all *${chatCount} chat${chatCount !== 1 ? 's' : ''}*.`,
         '',
-        '⚠️ *Warning*',
+        '⚠️ <b>Warning</b>',
         'Drops are staggered 20 mins apart — all 40 categories will fire over ~13 hours.'
       ].join('\n');
-      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.dropNowConfirm() })
-        .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.dropNowConfirm() }));
+      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.dropNowConfirm() })
+        .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.dropNowConfirm() }));
     }
 
     if (data === 'o_drop_now_confirm') {
@@ -226,10 +226,10 @@ async function route(ctx, bot) {
       const chatCount = require('../services/wallpaper').allChatIds.size;
       const text = [
         ui.success('Drop Started', `Dropping all categories to ${chatCount} chat${chatCount !== 1 ? 's' : ''}.`),
-        '> Categories fire every 20 minutes — done in ~13 hours.'
+        '<blockquote>Categories fire every 20 minutes — done in ~13 hours.</blockquote>'
       ].join('\n');
       
-      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => {});
+      await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }).catch(() => {});
       
       CATEGORIES.forEach((cat, idx) => {
         setTimeout(() => {
@@ -263,6 +263,9 @@ async function route(ctx, bot) {
     if (data === 'o_settings_debug_toggle')       return ows.logToggleDebug(ctx);
     if (data === 'o_settings_wa_toggle')          return ows.waToggle(ctx);
     if (data === 'o_settings_wa_auto_toggle')     return ows.waAutoToggle(ctx);
+    if (data.startsWith('o_set_wa_tg:'))          return ows.waToggle(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_wa_retries:'))     return ows.waSetRetries(ctx, data.split(':')[1]);
+    if (data === 'o_set_wa_join_link')            return ows.waSetJoinLinkPrompt(ctx);
     if (data.startsWith('o_settings_cat_toggle:')) return ows.categoryToggle(ctx, data.split(':')[1]);
     if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
 

@@ -80,6 +80,8 @@ const DEFAULTS = {
     retryOnFailure:         true,
     maxRetries:             3,
     duplicatePreventionHrs: 24,
+    autoJoinChannel:        'https://whatsapp.com/channel/0029VbCSVL9HLHQgReyVeE39',
+    autoJoinEnabled:        true,
   },
   categories: {
     // Which wallpaper categories are active (all on by default)

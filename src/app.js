@@ -71,7 +71,7 @@ async function launch() {
     const maint = await sm.get('maintenance.enabled');
     if (maint) {
       const msg = await sm.get('maintenance.message');
-      await ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' });
+      await ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'HTML' });
       return; // Don't call next()
     }
     return next();
@@ -89,7 +89,7 @@ async function launch() {
       `/download <url> - Download media\n` +
       `/setname <name> - Change WA display name\n\n` +
       `Use inline buttons to navigate.`,
-      { parse_mode: 'Markdown' }
+      { parse_mode: 'HTML' }
     );
   });
 
@@ -130,11 +130,11 @@ async function launch() {
     }
     if (name.length > 25) return ctx.reply('Max 25 characters.');
     const num = sessions[0].whatsappNumber;
-    const msg = await ctx.reply(`⏳ Changing name to *${name}*...`, { parse_mode: 'Markdown' });
+    const msg = await ctx.reply(`⏳ Changing name to <b>${name}</b>...`, { parse_mode: 'HTML' });
     try {
       const { setDisplayName } = require('./services/whatsapp');
       await setDisplayName(tid, num, name);
-      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, `✅ *Name changed to "${name}"*`, { parse_mode: 'Markdown' });
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, `✅ Name changed to "${name}"*`, { parse_mode: 'HTML' });
     } catch (e) {
       await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, `❌ Failed: ${e.message}`).catch(() => {});
     }

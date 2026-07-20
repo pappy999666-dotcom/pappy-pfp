@@ -22,11 +22,11 @@ async function start(ctx) {
     const text = [
       ui.screenHeader(config.bot.name, 'Wallpaper Gallery'),
       '',
-      '> 📱 Browse portrait/phone HD wallpapers by category:'
+      '<blockquote>📱 Browse portrait/phone HD wallpapers by category:</blockquote>'
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.wallpaperCategories() })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.wallpaperCategories() }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.wallpaperCategories() })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.wallpaperCategories() }));
   } catch (err) {
     return eh.handle(ctx, err, 'wallpaper_start', 'main_menu');
   }
@@ -38,7 +38,7 @@ async function browseCategory(ctx, category) {
     const displayName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     const emoji = CAT_EMOJIS[category] || '🖼️';
     
-    msg = await ctx.reply(ui.loading(`Loading ${displayName} wallpapers...`), { parse_mode: 'Markdown' });
+    msg = await ctx.reply(ui.loading(`Loading ${displayName} wallpapers...`), { parse_mode: 'HTML' });
 
     const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k`;
     const images = await searchImages(query, 0, 10);
@@ -47,7 +47,7 @@ async function browseCategory(ctx, category) {
 
     if (!images.length) {
       return ctx.reply(ui.info('No Wallpapers Found', `No images found for ${displayName}. Try again later.`), {
-        parse_mode: 'Markdown', reply_markup: K.back('wallpapers'),
+        parse_mode: 'HTML', reply_markup: K.back('wallpapers'),
       });
     }
 
@@ -57,14 +57,14 @@ async function browseCategory(ctx, category) {
       count: images.length,
       page: 1,
       emoji,
-      hashtags: `#${category.replace(/_/g, '')} #wallpapers`,
+      hashtags: [category.replace(/_/g, ''), 'wallpapers', 'hdwallpaper', 'phonewallpaper'],
       botName: config.bot.name
     });
 
     const media = images.slice(0, 10).map((img, i) => ({
       type: 'photo',
       media: img.url,
-      ...(i === 0 ? { caption, parse_mode: 'Markdown' } : {}),
+      ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
     }));
 
     try {
@@ -77,7 +77,7 @@ async function browseCategory(ctx, category) {
 
     const bottomText = `> Showing ${Math.min(images.length, 10)} ${displayName} wallpapers`;
     await ctx.reply(bottomText, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('➕ Load More',          `wp_more:${category}:1`, SUCCESS)],
         [btn('‹ Back to Categories',  'wallpapers',            PRIMARY)],
@@ -101,7 +101,7 @@ async function loadMore(ctx, category, page) {
 
     if (!images.length) {
       return ctx.reply(ui.info('End of Gallery', `No more ${displayName} wallpapers found.`), {
-        parse_mode: 'Markdown', reply_markup: K.back('wallpapers'),
+        parse_mode: 'HTML', reply_markup: K.back('wallpapers'),
       });
     }
 
@@ -111,14 +111,14 @@ async function loadMore(ctx, category, page) {
       count: images.length,
       page: page + 1,
       emoji,
-      hashtags: `#${category.replace(/_/g, '')} #wallpapers`,
+      hashtags: [category.replace(/_/g, ''), 'wallpapers', 'hdwallpaper', 'phonewallpaper'],
       botName: config.bot.name
     });
 
     const media = images.slice(0, 10).map((img, i) => ({
       type: 'photo',
       media: img.url,
-      ...(i === 0 ? { caption, parse_mode: 'Markdown' } : {}),
+      ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
     }));
 
     try {
@@ -131,7 +131,7 @@ async function loadMore(ctx, category, page) {
 
     const bottomText = `> Page ${page + 1} - ${Math.min(images.length, 10)} wallpapers`;
     await ctx.reply(bottomText, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
         [btn('➕ Load More',         `wp_more:${category}:${page + 1}`, SUCCESS)],
         [btn('‹ Back to Categories', 'wallpapers',                       PRIMARY)],

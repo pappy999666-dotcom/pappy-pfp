@@ -203,15 +203,15 @@ function buildDropCaption(category, count) {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
-    `✨ *DAILY DROP IS HERE!* ✨\n` +
+    `✨ <b>DAILY DROP IS HERE!</b> ✨\n` +
     `${'─'.repeat(28)}\n\n` +
     `${meta.emoji} *Category:* ${meta.name}\n` +
     `🖼 *${count} HD Wallpapers* — Fresh today\n` +
     `📅 ${dateStr}\n\n` +
     `${'─'.repeat(28)}\n` +
     `🔥 *Save your favourites & set as wallpaper!*\n\n` +
-    `📲 *Follow our channel for daily drops*\n` +
-    `🔁 *Share with friends who love wallpapers*\n\n` +
+    `📲 <b>Follow our channel for daily drops</b>\n` +
+    `🔁 <b>Share with friends who love wallpapers</b>\n\n` +
     `${hashtags}\n` +
     `${'─'.repeat(28)}\n` +
     `_Powered by ${config.bot.name}_`
@@ -377,7 +377,7 @@ async function postWallpapersToAllTgChannels(bot, category) {
     botName: config.bot.name,
     botUsername: config.bot.username,
   });
-  const captionText = Array.isArray(captionLines) ? captionLines.join('\n') : captionLines;
+  const captionText = captionLines;
 
   const promoRows = await getPromoButtons();
   const dmRow = config.bot.username
@@ -395,7 +395,7 @@ async function postWallpapersToAllTgChannels(bot, category) {
         media: (wp.localPath && fs.existsSync(wp.localPath))
           ? { source: fs.createReadStream(wp.localPath) }
           : wp.url,
-        ...(i === 0 ? { caption: captionText, parse_mode: 'Markdown' } : {}),
+        ...(i === 0 ? { caption: captionText, parse_mode: 'HTML' } : {}),
       }));
 
       await bot.telegram.sendMediaGroup(chatId, mediaGroup);
@@ -404,8 +404,9 @@ async function postWallpapersToAllTgChannels(bot, category) {
       if (keyboard.length) {
         await sleep(800);
         await bot.telegram.sendMessage(chatId,
-          `📲 *Follow for daily wallpaper drops!*\n🔁 Share with friends who love wallpapers`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } }
+          `📲 <b>Follow for daily wallpaper drops!</b>
+🔁 Share with friends who love wallpapers`,
+          { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
         ).catch(() => {});
       }
     } catch (albumErr) {
@@ -418,7 +419,7 @@ async function postWallpapersToAllTgChannels(bot, category) {
           const isFirst = sentCount === 0;
           await bot.telegram.sendPhoto(chatId, source, {
             caption: isFirst ? captionText : undefined,
-            parse_mode: isFirst ? 'Markdown' : undefined,
+            parse_mode: isFirst ? 'HTML' : undefined,
           });
           sentCount++;
           posted.push({ chatId, wp });
@@ -431,8 +432,9 @@ async function postWallpapersToAllTgChannels(bot, category) {
       }
       if (sentCount > 0 && keyboard.length) {
         await bot.telegram.sendMessage(chatId,
-          `📲 *Follow for daily wallpaper drops!*\n🔁 Share with friends who love wallpapers`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } }
+          `📲 <b>Follow for daily wallpaper drops!</b>
+🔁 Share with friends who love wallpapers`,
+          { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
         ).catch(() => {});
       }
     }
@@ -459,33 +461,41 @@ async function postWallpapersToWA(category) {
 
   const sock = getOwnerSock();
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
-  const hashtags = (CATEGORY_HASHTAGS[category] || []).map(h => `#${h}`).join(' ');
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const hashtags = (CATEGORY_HASHTAGS[category] || []).map(t => '#' + t).join(' ');
 
-  const waCaption =
-    `✨ *DAILY DROP IS HERE!* ✨\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `${meta.emoji} *Category:* ${meta.name}\n` +
-    `🖼 *${wallpapers.length} HD Wallpapers* — Fresh today\n` +
-    `📅 ${dateStr}\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 Save your favourites!\n` +
-    `📲 Follow for daily drops\n` +
-    `🔁 Share with friends\n\n` +
-    `${hashtags}\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `_Powered by ${config.bot.name}_`;
+  // WA caption is plain text — WhatsApp does not render HTML
+  const waCaption = [
+    meta.emoji + ' *' + meta.name + ' Drop*',
+    '',
+    'Fresh HD wallpapers — curated daily',
+    'Tap any image to save · Share with friends',
+    '',
+    hashtags,
+  ].filter(Boolean).join('\n');
 
   const posted = [];
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
 
   for (const channel of waChannels) {
-    const jid = channel.chatId || channel.link;
+    // Resolve real newsletter JID from invite code if not already resolved
+    let jid = channel.chatId || channel.link;
+    const inviteMatch = String(jid).match(/(?:channel\/|^)([A-Za-z0-9]{20,})$/);
+    if (inviteMatch && !String(jid).includes('@')) {
+      try {
+        const nlMeta = await sock.newsletterMetadata('invite', inviteMatch[1]);
+        if (nlMeta && nlMeta.id) {
+          jid = nlMeta.id;
+          await Channel.findByIdAndUpdate(channel._id, { chatId: jid });
+          logger.info('Resolved newsletter JID: ' + jid);
+        }
+      } catch (e) {
+        logger.warn('Could not resolve newsletter JID for ' + jid + ': ' + e.message);
+      }
+    }
 
     const chunks = [];
-    for (let i = 0; i < wallpapers.length; i += 3) chunks.push(wallpapers.slice(i, i + 3));
+    for (let ci = 0; ci < wallpapers.length; ci += 3) chunks.push(wallpapers.slice(ci, ci + 3));
 
     let sentCount = 0;
     for (const chunk of chunks) {
@@ -508,13 +518,17 @@ async function postWallpapersToWA(category) {
           await sock.sendMessage(jid, {
             image: buffer,
             caption: isFirst ? waCaption : undefined,
+            mimetype: 'image/jpeg',
           });
           sentCount++;
           posted.push(wp);
-        } catch (e) { logger.warn(`WA ${jid} (${category}): ${e.message}`); }
+        } catch (e) {
+          logger.warn('WA drop ' + jid + ' (' + category + '): ' + e.message);
+        }
       }));
       await sleep(1500);
     }
+    logger.info('WA drop: sent ' + sentCount + ' ' + category + ' wallpapers to ' + jid);
   }
 
   for (const wp of posted) { wp.postedToWa = true; await wp.save().catch(() => {}); }

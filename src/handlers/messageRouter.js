@@ -21,7 +21,7 @@ async function route(ctx, bot) {
     const maint = await sm.get('maintenance.enabled');
     if (maint && !owner) {
       const msg = await sm.get('maintenance.message');
-      return ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' });
+      return ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'HTML' });
     }
 
     switch (step) {

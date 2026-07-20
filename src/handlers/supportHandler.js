@@ -12,14 +12,14 @@ async function start(ctx) {
     const text = [
       ui.screenHeader(config.bot.name, 'Support Center'),
       '',
-      '> Send your message, question, or issue.',
+      '<blockquote>Send your message, question, or issue.</blockquote>',
       '',
       'You can send: text, photo, document, or video.',
       'Our team will reply as soon as possible.'
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') }));
   } catch (err) {
     return eh.handle(ctx, err, 'support_start', 'main_menu');
   }
@@ -48,7 +48,7 @@ async function handleMsg(ctx, bot) {
       'You will receive our reply here in chat.'
     ].join('\n');
     
-    await ctx.reply(replyText, { parse_mode: 'Markdown', reply_markup: K.backMain() });
+    await ctx.reply(replyText, { parse_mode: 'HTML', reply_markup: K.backMain() });
   } catch (err) {
     return eh.handle(ctx, err, 'support_msg', 'main_menu');
   }
@@ -60,11 +60,11 @@ async function ownerReplyPrompt(ctx, ticketId) {
     const text = [
       ui.ticketHeader(ticketId, 'open'),
       '',
-      '> Send your reply to the user:'
+      '<blockquote>Send your reply to the user:</blockquote>'
     ].join('\n');
     
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') })
-      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }));
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('owner') })
+      .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('owner') }));
   } catch (err) {
     return eh.handle(ctx, err, 'owner_reply_prompt', 'owner');
   }
@@ -76,10 +76,10 @@ async function ownerReplyDo(ctx, bot) {
     clearState(ctx.from.id);
     
     const ticket = await addOwnerReply(ticketId, ctx.message.text);
-    if (!ticket) return ctx.reply(ui.error('Ticket Not Found', `ID: ${ticketId}`), { parse_mode: 'Markdown' });
+    if (!ticket) return ctx.reply(ui.error('Ticket Not Found', `ID: ${ticketId}`), { parse_mode: 'HTML' });
     
     await replyToUser(bot, ticket.telegramId, ctx.message.text);
-    await ctx.reply(ui.success('Reply Sent', `Ticket ${ticketId}`), { parse_mode: 'Markdown' });
+    await ctx.reply(ui.success('Reply Sent', `Ticket ${ticketId}`), { parse_mode: 'HTML' });
   } catch (err) {
     return eh.handle(ctx, err, 'owner_reply', 'owner');
   }
@@ -89,7 +89,7 @@ async function closeDo(ctx, ticketId) {
   try {
     await closeTicket(ticketId);
     await ctx.answerCbQuery('Ticket closed').catch(() => {});
-    await ctx.editMessageText(ui.info('Ticket Closed', `#${ticketId}`), { parse_mode: 'Markdown' }).catch(() => {});
+    await ctx.editMessageText(ui.info('Ticket Closed', `#${ticketId}`), { parse_mode: 'HTML' }).catch(() => {});
   } catch (err) {
     return eh.handle(ctx, err, 'close_ticket', 'owner');
   }
