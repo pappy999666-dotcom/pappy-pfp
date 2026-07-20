@@ -431,7 +431,9 @@ async function waPanel(ctx) {
       `Join channel: [${w.autoJoinChannel || 'Not set'}]`,
       `Retry on failure: [${w.retryOnFailure ? '✅' : '⛔'}]`,
       `Max retries: [${w.maxRetries}]`,
-      `Duplicate prevention: [${w.duplicatePreventionHrs} hours]`
+      `Duplicate prevention: [${w.duplicatePreventionHrs} hours]`,
+      `Drop forwarding: [${w.forwardingEnabled ? '✅' : '⛔'}]`,
+      `Forward destinations: [${(w.forwardingDestinations || []).length}]`
     ])
   ].join('\n');
   const btns = [
@@ -442,6 +444,7 @@ async function waPanel(ctx) {
     [btn(w.retryOnFailure ? '⛔ Disable Retries' : '✅ Enable Retries', 'o_set_wa_tg:retryOnFailure', w.retryOnFailure ? DANGER : SUCCESS)],
     [btn('Set Max Retries', 'o_set_wa_retries:maxRetries', PRIMARY)],
     [btn('Set Dup Prevention Hrs', 'o_set_wa_retries:duplicatePreventionHrs', PRIMARY)],
+    [btn('📣 Daily Drop Forwarding', 'o_settings_wa_forward', PRIMARY)],
     [{ text: '‹ Back', callback_data: 'o_settings' }]
   ];
   await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
@@ -451,6 +454,57 @@ async function waToggle(ctx, field) {
   await ctx.answerCbQuery('✅ Updated').catch(()=>{});
   await waPanel(ctx);
 }
+
+async function waForwardPanel(ctx) {
+  const w = await settingsManager.getGroup('whatsapp');
+  const destinations = w.forwardingDestinations || [];
+  const text = [
+    ui.screenHeader(config.bot.name, 'Daily Drop Forwarding'),
+    '',
+    ui.blockquote([
+      `Forwarding: [${w.forwardingEnabled ? '✅ Enabled' : '⛔ Disabled'}]`,
+      `Destinations: [${destinations.length}]`,
+      'Posts the same Daily Drop album to selected WhatsApp groups after channel publishing.',
+      'Group mentions are attempted when Baileys group metadata is available.'
+    ]),
+    '',
+    destinations.length ? '<blockquote expandable>' + destinations.map((jid, i) => `${i + 1}. ${ui.esc(jid)}`).join('\n') + '</blockquote>' : '<blockquote>No forwarding groups configured.</blockquote>'
+  ].join('\n');
+  const btns = [
+    [btn(w.forwardingEnabled ? '⛔ Disable Forwarding' : '✅ Enable Forwarding', 'o_set_wa_tg:forwardingEnabled', w.forwardingEnabled ? DANGER : SUCCESS)],
+    [btn('➕ Add Destination Group', 'o_wa_forward_add', SUCCESS)],
+    ...destinations.map((jid, i) => [btn(`🗑 Remove ${i + 1}`, `o_wa_forward_remove:${i}`, DANGER)]),
+    [{ text: '‹ Back to WA Channel', callback_data: 'o_settings_wa' }]
+  ];
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+}
+async function waForwardAddPrompt(ctx) {
+  ctx.setState({ step: 'o_settings_wa_forward_add' });
+  await ctx.editMessageText([
+    ui.screenHeader(config.bot.name, 'Add Forward Destination'),
+    '',
+    '<blockquote>Send a WhatsApp group JID ending in <code>@g.us</code>.</blockquote>',
+    '<blockquote expandable>Tip: Owner Panel → JID List shows joined WhatsApp groups.</blockquote>'
+  ].join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'❌ Cancel', callback_data:'o_settings_wa_forward'}]] } }).catch(()=>{});
+}
+async function waForwardAddInput(ctx) {
+  clearState(ctx.from.id);
+  const jid = ctx.message.text?.trim();
+  if (!jid || !jid.endsWith('@g.us')) return ctx.reply(ui.error('Invalid Group JID', 'Destination must end with <code>@g.us</code>.'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'‹ Back', callback_data:'o_settings_wa_forward'}]] } });
+  const w = await settingsManager.getGroup('whatsapp');
+  const destinations = Array.from(new Set([...(w.forwardingDestinations || []), jid]));
+  await settingsManager.set('whatsapp.forwardingDestinations', destinations);
+  await ctx.reply(ui.success('Forward Destination Added', jid), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{text:'‹ Back', callback_data:'o_settings_wa_forward'}]] } });
+}
+async function waForwardRemove(ctx, index) {
+  const w = await settingsManager.getGroup('whatsapp');
+  const destinations = w.forwardingDestinations || [];
+  destinations.splice(Number(index), 1);
+  await settingsManager.set('whatsapp.forwardingDestinations', destinations);
+  await ctx.answerCbQuery('✅ Removed').catch(()=>{});
+  return waForwardPanel(ctx);
+}
+
 async function waSetRetries(ctx, field) {
   const w = await settingsManager.getGroup('whatsapp');
   ctx.setState({ step: 'o_settings_set_wa', waField: field });
@@ -569,6 +623,7 @@ async function handleInput(ctx, _bot) {
   if (step === 'o_settings_set_sch_days')    return schedulerDaysInput(ctx);
   if (step === 'o_settings_set_wa')          return waRetriesInput(ctx);
   if (step === 'o_settings_set_wa_join_link') return waSetJoinLinkInput(ctx);
+  if (step === 'o_settings_wa_forward_add') return waForwardAddInput(ctx);
 }
 
 module.exports = {
@@ -582,7 +637,7 @@ module.exports = {
   uploadsPanel, uploadsSet, uploadsInput,
   cooldownsPanel, cooldownsSet, cooldownsInput,
   schedulerPanel, schedulerToggle, schedulerSetDays, schedulerDaysInput,
-  waPanel, waToggle, waAutoToggle, waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
+  waPanel, waToggle, waAutoToggle, waForwardPanel, waForwardAddPrompt, waForwardAddInput, waForwardRemove, waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
   handleInput,
   categoriesPanel, categoryToggle,
 };

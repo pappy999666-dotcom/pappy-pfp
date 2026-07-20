@@ -13,6 +13,7 @@ const config = {
 
   ownerWaNumber: process.env.OWNER_WA_NUMBER || '',
   sessionSecret: process.env.SESSION_SECRET || 'pappybot-secret-2026',
+  webUrl: process.env.WEB_APP_URL || process.env.FRONTEND_URL || process.env.PAPPY_WEB_URL || 'https://pappybot.app',
   nodeEnv: process.env.NODE_ENV || 'development',
   logLevel: process.env.LOG_LEVEL || 'info',
 
