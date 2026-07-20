@@ -261,16 +261,16 @@ function buildDropCaption(category, count) {
   return (
     `✨ <b>DAILY DROP IS HERE!</b> ✨\n` +
     `${'─'.repeat(28)}\n\n` +
-    `${meta.emoji} *Category:* ${meta.name}\n` +
-    `🖼 *${count} HD Wallpapers* — Fresh today\n` +
+    `${meta.emoji} <b>Category:</b> ${meta.name}\n` +
+    `🖼 <b>${count} HD Wallpapers</b> — Fresh today\n` +
     `📅 ${dateStr}\n\n` +
     `${'─'.repeat(28)}\n` +
-    `🔥 *Save your favourites & set as wallpaper!*\n\n` +
+    `🔥 <b>Save your favourites &amp; set as wallpaper!</b>\n\n` +
     `📲 <b>Follow our channel for daily drops</b>\n` +
     `🔁 <b>Share with friends who love wallpapers</b>\n\n` +
     `${hashtags}\n` +
     `${'─'.repeat(28)}\n` +
-    `_Powered by ${config.bot.name}_`
+    `<i>Powered by ${config.bot.name}</i>`
   );
 }
 
@@ -712,5 +712,5 @@ module.exports = {
   addAdminChannel, removeAdminChannel,
   addChat, removeChat,
   allChatIds, adminChatIds,
-  buildDropCaption, getPromoButtons,
+  buildDropCaption, buildWaCaption, buildEditorialQuery, getPromoButtons,
 };
