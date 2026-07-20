@@ -11,7 +11,11 @@ const dl = require('./downloadHandler');
 const wp = require('./wallpaperHandler');
 const ig = require('./imageGenHandler');
 const ow = require('../owner/ownerHandler');
+const sm = require('../config/settingsManager');
+const ui = require('../utils/ui');
+const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
+const ows = require('./ownerSettingsHandler');
 
 async function route(ctx, bot) {
   const data = ctx.callbackQuery?.data;
@@ -22,65 +26,75 @@ async function route(ctx, bot) {
   const owner = isOwner(uid);
 
   try {
+    const maint = await sm.get('maintenance.enabled');
+    if (maint && !owner) {
+      const msg = await sm.get('maintenance.message');
+      return ctx.editMessageText(
+        ui.warn('Maintenance Mode', msg || 'Back soon!'),
+        { parse_mode: 'Markdown' }
+      ).catch(() => ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' }));
+    }
+
     if (data !== 'check_join' && data !== 'main_menu') {
       if (!await checkForceJoin(ctx, bot)) return;
     }
 
     if (data === 'main_menu') {
-      return ctx.editMessageText(`*${config.bot.name} - Main Menu*\n\nChoose an option:`, {
+      const text = [
+        ui.screenHeader(config.bot.name, 'Main Menu'),
+        '',
+        '> Choose an option below:'
+      ].join('\n');
+      return ctx.editMessageText(text, {
         parse_mode: 'Markdown', reply_markup: K.mainMenu(owner),
-      }).catch(() => ctx.reply('Main Menu:', { reply_markup: K.mainMenu(owner) }));
+      }).catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.mainMenu(owner) }));
     }
 
     if (data === 'check_join') {
       if (await checkForceJoin(ctx, bot)) {
-        return ctx.editMessageText(`✅ *Access granted!*\n\nChoose an option:`, {
+        const text = [
+          ui.success('Access Granted', 'Welcome to the bot!'),
+          '',
+          '> Choose an option below:'
+        ].join('\n');
+        return ctx.editMessageText(text, {
           parse_mode: 'Markdown', reply_markup: K.mainMenu(owner),
-        }).catch(() => ctx.reply('Verified!', { reply_markup: K.mainMenu(owner) }));
+        }).catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.mainMenu(owner) }));
       }
       return;
     }
 
-    /* ── Pinterest ── */
     if (data === 'pinterest') return pi.start(ctx);
     if (data.startsWith('pi_more:')) {
       const [, page, ...rest] = data.split(':');
       return pi.more(ctx, parseInt(page), rest.join(':'));
     }
 
-    /* ── Pairing ── */
     if (data === 'pair_wa') return pa.start(ctx);
     if (data.startsWith('pair_delete:')) return pa.deleteAndRepair(ctx, data.slice(12));
     if (data.startsWith('pair_code:')) return pa.doPairCode(ctx, data.slice(10), bot);
     if (data.startsWith('pair_qr:')) return pa.doPairQR(ctx, data.slice(8), bot);
 
-    /* ── Paired accounts ── */
     if (data === 'paired') return ac.pairedList(ctx);
     if (data.startsWith('account:')) return ac.accountMenu(ctx, data.slice(8));
 
-    /* ── PFP actions ── */
     if (data.startsWith('set_pfp:')) return ac.setPfpPrompt(ctx, data.slice(8));
     if (data.startsWith('get_pfp:')) return ac.getPfp(ctx, data.slice(8));
     if (data.startsWith('del_pfp:')) return ac.delPfpConfirm(ctx, data.slice(8));
     if (data.startsWith('confirm_del_pfp:')) return ac.delPfpDo(ctx, data.slice(16));
 
-    /* ── Set Display Name ── */
     if (data.startsWith('setname:')) return ac.setNamePrompt(ctx, data.slice(8));
 
-    /* ── Auto change ── */
     if (data.startsWith('auto_pfp:')) return ac.autoMenu(ctx, data.slice(9));
     if (data.startsWith('auto_hour:')) return ac.autoHourPrompt(ctx, data.slice(10));
     if (data.startsWith('auto_day:')) return ac.autoDayPrompt(ctx, data.slice(9));
     if (data.startsWith('stop_auto:')) return ac.stopAuto(ctx, data.slice(10));
 
-    /* ── Purge ── */
     if (data.startsWith('purge:')) return ac.purgeConfirm(ctx, data.slice(6));
     if (data.startsWith('confirm_purge:')) return ac.purgeDo(ctx, data.slice(14));
 
-    /* ── Permanent session ── */
     if (data.startsWith('perm:')) return ac.makePermanent(ctx, data.slice(5));
 
-    /* ── Group PFP ── */
     if (data === 'group_pfp') return gp.start(ctx);
     if (data === 'gpfp_immediate') return gp.immediateStart(ctx);
     if (data === 'gpfp_scheduled') return gp.scheduledStart(ctx);
@@ -88,7 +102,6 @@ async function route(ctx, bot) {
     if (data.startsWith('gpfp_cancel:')) return gp.cancelTask(ctx, data.slice(12));
     if (data.startsWith('gpfp_continue:')) return gp.continueAdminCheck(ctx, data.slice(14), bot);
 
-    /* ── Download ── */
     if (data === 'download') return dl.start(ctx);
     if (data === 'dl_auto') return dl.promptUrl(ctx, null);
     if (data.startsWith('dl_')) {
@@ -101,7 +114,6 @@ async function route(ctx, bot) {
       return dl.promptUrl(ctx, names[platform] || platform);
     }
 
-    /* ── Wallpapers ── */
     if (data === 'wallpapers') return wp.start(ctx);
     if (data.startsWith('wp_more:')) {
       const parts = data.slice(8).split(':');
@@ -109,22 +121,27 @@ async function route(ctx, bot) {
     }
     if (data.startsWith('wp_')) {
       const category = data.slice(3);
-      if (CATEGORIES.includes(category)) return wp.browseCategory(ctx, category);
+      return wp.browseCategory(ctx, category);
     }
 
-    /* ── AI Image Generator ── */
     if (data === 'imagegen') return ig.promptUser(ctx);
 
-    /* ── Support ── */
     if (data === 'support') return su.start(ctx);
     if (data.startsWith('reply_ticket:') && owner) return su.ownerReplyPrompt(ctx, data.slice(13));
     if (data.startsWith('close_ticket:') && owner) return su.closeDo(ctx, data.slice(13));
 
-    /* ── Owner panel ── */
-    if (!owner && data.startsWith('o'))
+    if (!owner && data.startsWith('o_'))
       return ctx.answerCbQuery('Owner only.', { show_alert: true }).catch(() => {});
 
     if (data === 'owner') return ow.panel(ctx);
+    if (data === 'o_settings') {
+      const text = [
+        ui.screenHeader('Owner Panel', 'Settings & Advanced'),
+        '',
+        '> System and WhatsApp connection settings.'
+      ].join('\n');
+      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.ownerSettingsMenu() }).catch(() => {});
+    }
     if (data === 'o_stats') return ow.stats(ctx);
     if (data === 'o_users') return ow.users(ctx);
     if (data === 'o_broadcast') return ow.broadcastPrompt(ctx);
@@ -142,75 +159,78 @@ async function route(ctx, bot) {
     if (data === 'o_wa_pair_code') return ow.ownerWaPairCode(ctx, bot);
     if (data === 'o_wa_pair_qr') return ow.ownerWaPairQR(ctx, bot);
 
-    /* ── Promotion Manager ── */
     if (data === 'o_promo') return ow.promoPanel(ctx);
     if (data === 'promo_add') return ow.promoAddPrompt(ctx);
     if (data.startsWith('promo_toggle:')) return ow.promoToggle(ctx, data.slice(13));
     if (data.startsWith('promo_del:')) return ow.promoDel(ctx, data.slice(10));
     if (data.startsWith('promo_edit:')) return ow.promoEditPrompt(ctx, data.slice(11));
 
-    /* ── JID lookup ── */
     if (data === 'o_jid') {
       const { isOwnerConnected, getOwnerSock } = require('../services/ownerWhatsapp');
       if (!isOwnerConnected()) {
-        return ctx.editMessageText(
-          '*❌ Owner WA not connected.*\n\nPair it first via Owner Panel → Pair Owner WA.\n\nOr use: /jid <invite_link>',
-          { parse_mode: 'Markdown', reply_markup: K.back('owner') }
-        ).catch(() => {});
+        const text = [
+          ui.error('WhatsApp Not Connected', 'Pair it first via Owner Panel → Pair Owner WA.', 'Or use: /jid <invite_link>')
+        ].join('\n');
+        return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('o_settings') }).catch(() => {});
       }
       const sock = getOwnerSock();
-      const wait = await ctx.editMessageText('⏳ Fetching all groups & channels...').catch(() => ctx.reply('⏳ Fetching...'));
+      const wait = await ctx.editMessageText(ui.loading('Fetching all groups & channels...'), { parse_mode: 'Markdown' }).catch(() => ctx.reply(ui.loading('Fetching...'), { parse_mode: 'Markdown' }));
       try {
         const chats = await sock.groupFetchAllParticipating();
         const entries = Object.values(chats);
         const groups   = entries.filter(x => x.id.endsWith('@g.us'));
         const channels = entries.filter(x => x.id.endsWith('@newsletter'));
-        let text = '*📋 WA JID List*\n\n';
+        
+        const lines = [ui.screenHeader('Owner Panel', 'WA JID List'), ''];
+        
         if (groups.length) {
-          text += '*👥 Groups (' + groups.length + '):*\n';
-          for (const g of groups) text += '• *' + (g.subject || 'Unnamed') + '*\n  `' + g.id + '`\n';
-          text += '\n';
+          lines.push(`*👥 Groups (${groups.length}):*`);
+          for (const g of groups) lines.push(`• *${g.subject || 'Unnamed'}*\n  ${ui.codeBlock(g.id)}`);
+          lines.push('');
         }
         if (channels.length) {
-          text += '*📢 Channels (' + channels.length + '):*\n';
-          for (const ch of channels) text += '• *' + (ch.subject || 'Unnamed') + '*\n  `' + ch.id + '`\n';
+          lines.push(`*📢 Channels (${channels.length}):*`);
+          for (const ch of channels) lines.push(`• *${ch.subject || 'Unnamed'}*\n  ${ui.codeBlock(ch.id)}`);
         }
-        if (!entries.length) text += '_No groups or channels found._';
-        text += '\n\n_Copy a JID and add it via Channel Management_';
-        const out = text.slice(0, 4000);
+        if (!entries.length) lines.push('> _No groups or channels found._');
+        lines.push('', '> _Copy a JID and add it via Channel Management_');
+        
+        const out = lines.join('\n').slice(0, 4000);
         if (wait && wait.message_id) {
-          await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, out, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => ctx.reply(out, { parse_mode: 'Markdown' }));
+          await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, out, { parse_mode: 'Markdown', reply_markup: K.back('o_settings') }).catch(() => ctx.reply(out, { parse_mode: 'Markdown' }));
         }
-      } catch (e) { await ctx.reply('❌ Error: ' + e.message); }
+      } catch (e) {
+        return eh.handle(ctx, e, 'jid_lookup', 'o_settings');
+      }
       return;
     }
 
-
-    /* ── Drop Now (Owner) ── */
     if (data === 'o_drop_now') {
       const { allChatIds } = require('../services/wallpaper');
       const chatCount = allChatIds.size;
-      return ctx.editMessageText(
-        `*🚀 Manual Wallpaper Drop*\n\n` +
-        `This will immediately drop wallpapers from all *40 categories* (10 imgs each) to all *${chatCount} chat${chatCount !== 1 ? 's' : ''}* the bot is in.\n\n` +
-        `⚠️ Drops are staggered 20 mins apart — all 40 categories will fire over ~13 hours.\n\n` +
-        `Confirm?`,
-        { parse_mode: 'Markdown', reply_markup: K.dropNowConfirm() }
-      ).catch(() => ctx.reply('Confirm drop?', { reply_markup: K.dropNowConfirm() }));
+      const text = [
+        ui.screenHeader('Owner Panel', 'Manual Drop'),
+        '',
+        `> This will immediately drop wallpapers from all *40 categories* to all *${chatCount} chat${chatCount !== 1 ? 's' : ''}*.`,
+        '',
+        '⚠️ *Warning*',
+        'Drops are staggered 20 mins apart — all 40 categories will fire over ~13 hours.'
+      ].join('\n');
+      return ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.dropNowConfirm() })
+        .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.dropNowConfirm() }));
     }
 
     if (data === 'o_drop_now_confirm') {
       const { CATEGORIES, runCategoryDrop } = require('../services/wallpaper');
       const STAGGER_MS = 20 * 60 * 1000;
       const chatCount = require('../services/wallpaper').allChatIds.size;
-      await ctx.editMessageText(
-        `✅ *Drop started!*\n\n` +
-        `Dropping all 40 categories to ${chatCount} chat${chatCount !== 1 ? 's' : ''}.\n` +
-        `Categories fire every 20 minutes — done in ~13 hours.\n\n` +
-        `You'll see logs in the console.`,
-        { parse_mode: 'Markdown', reply_markup: K.back('owner') }
-      ).catch(() => {});
-      // Fire all drops with stagger, non-blocking
+      const text = [
+        ui.success('Drop Started', `Dropping all categories to ${chatCount} chat${chatCount !== 1 ? 's' : ''}.`),
+        '> Categories fire every 20 minutes — done in ~13 hours.'
+      ].join('\n');
+      
+      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('owner') }).catch(() => {});
+      
       CATEGORIES.forEach((cat, idx) => {
         setTimeout(() => {
           runCategoryDrop(bot, cat).catch(e => logger.error(`ManualDrop(${cat}): ${e.message}`));
@@ -219,9 +239,35 @@ async function route(ctx, bot) {
       return;
     }
 
+    if (data === 'o_settings')                    return ows.settingsMenu(ctx);
+    if (data === 'o_settings_drops')              return ows.dropsPanel(ctx);
+    if (data === 'o_settings_wm')                 return ows.watermarkPanel(ctx);
+    if (data === 'o_settings_enhance')            return ows.enhancerPanel(ctx);
+    if (data === 'o_settings_rate')               return ows.ratePanel(ctx);
+    if (data === 'o_settings_maint')              return ows.maintPanel(ctx);
+    if (data === 'o_settings_log')                return ows.logPanel(ctx);
+    if (data === 'o_settings_uploads')            return ows.uploadsPanel(ctx);
+    if (data === 'o_settings_cooldowns')          return ows.cooldownsPanel(ctx);
+    if (data === 'o_settings_scheduler')          return ows.schedulerPanel(ctx);
+    if (data === 'o_settings_wa')                 return ows.waPanel(ctx);
+    if (data === 'o_settings_cats')               return ows.categoriesPanel(ctx);
+    if (data === 'o_settings_drop_toggle')        return ows.dropToggle(ctx);
+    if (data === 'o_settings_auto_toggle')        return ows.dropAutoToggle(ctx);
+    if (data === 'o_settings_wm_toggle')          return ows.wmToggle(ctx);
+    if (data.startsWith('o_settings_wm_pos:'))    return ows.wmSetPositionSelect(ctx, data.split(':')[1]);
+    if (data === 'o_settings_enhance_toggle')     return ows.enhancerToggleEnabled(ctx);
+    if (data === 'o_settings_upscale_toggle')     return ows.enhancerToggleUpscale(ctx);
+    if (data === 'o_settings_sharpen_toggle')     return ows.enhancerToggleSharpen(ctx);
+    if (data === 'o_settings_artifacts_toggle')   return ows.enhancerToggleArtifacts(ctx);
+    if (data === 'o_settings_maint_toggle')       return ows.maintToggle(ctx);
+    if (data === 'o_settings_debug_toggle')       return ows.logToggleDebug(ctx);
+    if (data === 'o_settings_wa_toggle')          return ows.waToggle(ctx);
+    if (data === 'o_settings_wa_auto_toggle')     return ows.waAutoToggle(ctx);
+    if (data.startsWith('o_settings_cat_toggle:')) return ows.categoryToggle(ctx, data.split(':')[1]);
+    if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
+
   } catch (err) {
-    logger.error('cb router: ' + err.message);
-    await ctx.reply('Something went wrong. Please try again.').catch(() => {});
+    return eh.handle(ctx, err, 'callback_router', 'main_menu');
   }
 }
 

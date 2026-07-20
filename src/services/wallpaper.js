@@ -6,152 +6,189 @@ const logger = require('../utils/logger');
 const { Wallpaper, Channel, PromotionLink } = require('../database/models');
 const { getWallpaperCategoryDir, downloadFile } = require('../utils/storage');
 const { sleep } = require('../utils/helpers');
+const { wallpaperCache } = require('../utils/cache');
+const { filterUrls, verifyBuffer } = require('../utils/qualityFilter');
+const { enhance } = require('../utils/imageEnhancer');
+const { applyWatermark } = require('../utils/watermark');
+const sm = require('../config/settingsManager');
+const ui = require('../utils/ui');
 
 const CATEGORIES = [
-  'anime', 'manga', 'novel_art', 'girls', 'boys',
-  'cars', 'nature', 'gaming', 'aesthetic', 'dark',
-  'space', 'city', 'abstract', 'sports', 'animals',
-  'superheroes', 'flowers', 'quotes', 'fashion', 'food',
-  'fantasy', 'sci_fi', 'horror', 'cyberpunk', 'lofi',
-  'mountains', 'ocean', 'sunset', 'forest', 'waterfall',
-  'architecture', 'vintage', 'minimalist', 'neon',
-  'mythology', 'dragons', 'magic', 'warriors',
+  'anime', 'dark_anime', 'cute_anime', 'manhwa', 'manga', 'novel_art',
+  'girls', 'boys', 'fashion', 'streetwear',
+  'cyberpunk', 'gaming', 'sci_fi', 'technology',
+  'minimal', 'amoled', 'aesthetic', 'neon', 'abstract', 'vintage', 'minimalist',
+  'nature', 'mountains', 'ocean', 'sunset', 'forest', 'waterfall', 'flowers', 'rain',
+  'cars', 'architecture', 'city', 'night_city',
+  'fantasy', 'space', 'luxury', 'japanese', 'korean',
+  'mythology', 'dragons', 'magic', 'warriors', 'superheroes', 'horror',
+  'animals', 'sports', 'lofi', 'food', 'quotes',
   'weekend_specials', 'monthly_collections',
 ];
 
 const CATEGORY_QUERIES = {
-  anime:               'anime vertical phone wallpaper 4k portrait ultra hd',
-  manga:               'manga art vertical phone wallpaper 4k portrait ultra hd',
-  novel_art:           'light novel illustration vertical phone wallpaper 4k ultra hd',
-  girls:               'beautiful girl portrait phone wallpaper 4k vertical ultra hd',
-  boys:                'handsome man portrait phone wallpaper 4k vertical ultra hd',
-  cars:                'sports car vertical phone wallpaper 4k ultra hd',
-  nature:              'nature scenery vertical phone wallpaper 4k portrait ultra hd',
-  gaming:              'gaming setup vertical phone wallpaper 4k dark ultra hd',
-  aesthetic:           'aesthetic pastel vertical phone wallpaper 4k ultra hd',
-  dark:                'dark aesthetic moody vertical phone wallpaper 4k ultra hd',
-  space:               'galaxy space universe vertical phone wallpaper 4k ultra hd',
-  city:                'cityscape night lights vertical phone wallpaper 4k ultra hd',
-  abstract:            'abstract art colorful vertical phone wallpaper 4k ultra hd',
-  sports:              'sports athlete action vertical phone wallpaper 4k ultra hd',
-  animals:             'wildlife animals cute vertical phone wallpaper 4k ultra hd',
-  superheroes:         'superhero marvel dc vertical phone wallpaper 4k ultra hd',
-  flowers:             'flowers bloom garden vertical phone wallpaper 4k ultra hd',
-  quotes:              'motivational quotes text aesthetic vertical phone wallpaper 4k',
-  fashion:             'fashion style outfit portrait vertical phone wallpaper 4k ultra hd',
-  food:                'food aesthetic delicious vertical phone wallpaper 4k ultra hd',
-  fantasy:             'fantasy landscape magical vertical phone wallpaper 4k ultra hd',
-  sci_fi:              'science fiction futuristic tech vertical phone wallpaper 4k ultra hd',
-  horror:              'dark horror eerie creepy vertical phone wallpaper 4k ultra hd',
-  cyberpunk:           'cyberpunk neon city rain vertical phone wallpaper 4k ultra hd',
-  lofi:                'lofi cozy aesthetic chill vertical phone wallpaper 4k ultra hd',
-  mountains:           'mountain peak snow landscape vertical phone wallpaper 4k ultra hd',
-  ocean:               'ocean sea waves beach vertical phone wallpaper 4k ultra hd',
-  sunset:              'sunset golden hour sky vertical phone wallpaper 4k ultra hd',
-  forest:              'forest trees misty green vertical phone wallpaper 4k ultra hd',
-  waterfall:           'waterfall nature water vertical phone wallpaper 4k ultra hd',
-  architecture:        'architecture building design vertical phone wallpaper 4k ultra hd',
-  vintage:             'vintage retro old school vertical phone wallpaper 4k ultra hd',
-  minimalist:          'minimalist clean simple vertical phone wallpaper 4k ultra hd',
-  neon:                'neon lights glow colorful vertical phone wallpaper 4k ultra hd',
-  mythology:           'mythology gods legends vertical phone wallpaper 4k ultra hd',
-  dragons:             'dragon fire fantasy vertical phone wallpaper 4k ultra hd',
-  magic:               'magic spell wizard vertical phone wallpaper 4k ultra hd',
-  warriors:            'warrior samurai knight armor vertical phone wallpaper 4k ultra hd',
-  weekend_specials:    'weekend vibes chill aesthetic vertical phone wallpaper 4k',
+  anime: 'anime vertical phone wallpaper 4k portrait ultra hd',
+  dark_anime: 'dark anime aesthetic moody vertical phone wallpaper 4k ultra hd',
+  cute_anime: 'cute kawaii anime girl vertical phone wallpaper 4k ultra hd pastel',
+  manhwa: 'manhwa webtoon stylish charismatic male character vertical phone wallpaper 4k ultra hd',
+  manga: 'manga art vertical phone wallpaper 4k portrait ultra hd',
+  novel_art: 'light novel illustration vertical phone wallpaper 4k ultra hd',
+  girls: 'beautiful girl portrait phone wallpaper 4k vertical ultra hd',
+  boys: 'handsome man portrait phone wallpaper 4k vertical ultra hd',
+  fashion: 'fashion style outfit portrait vertical phone wallpaper 4k ultra hd',
+  streetwear: 'streetwear fashion outfit urban vertical phone wallpaper 4k ultra hd',
+  cyberpunk: 'cyberpunk neon city rain vertical phone wallpaper 4k ultra hd',
+  gaming: 'gaming setup vertical phone wallpaper 4k dark ultra hd',
+  sci_fi: 'science fiction futuristic tech vertical phone wallpaper 4k ultra hd',
+  technology: 'technology digital futuristic vertical phone wallpaper 4k ultra hd',
+  minimal: 'minimal clean aesthetic vertical phone wallpaper 4k ultra hd',
+  amoled: 'pure black amoled dark vertical phone wallpaper 4k ultra hd minimal',
+  aesthetic: 'aesthetic pastel vertical phone wallpaper 4k ultra hd',
+  neon: 'neon lights glow colorful vertical phone wallpaper 4k ultra hd',
+  abstract: 'abstract art colorful vertical phone wallpaper 4k ultra hd',
+  vintage: 'vintage retro old school vertical phone wallpaper 4k ultra hd',
+  minimalist: 'minimalist clean simple vertical phone wallpaper 4k ultra hd',
+  nature: 'nature scenery vertical phone wallpaper 4k portrait ultra hd',
+  mountains: 'mountain peak snow landscape vertical phone wallpaper 4k ultra hd',
+  ocean: 'ocean sea waves beach vertical phone wallpaper 4k ultra hd',
+  sunset: 'sunset golden hour sky vertical phone wallpaper 4k ultra hd',
+  forest: 'forest trees misty green vertical phone wallpaper 4k ultra hd',
+  waterfall: 'waterfall nature water vertical phone wallpaper 4k ultra hd',
+  flowers: 'flowers bloom garden vertical phone wallpaper 4k ultra hd',
+  rain: 'rain aesthetic melancholic vertical phone wallpaper 4k ultra hd',
+  cars: 'sports car vertical phone wallpaper 4k ultra hd',
+  architecture: 'architecture building design vertical phone wallpaper 4k ultra hd',
+  city: 'cityscape night lights vertical phone wallpaper 4k ultra hd',
+  night_city: 'night city lights rain neon vertical phone wallpaper 4k ultra hd',
+  fantasy: 'fantasy landscape magical vertical phone wallpaper 4k ultra hd',
+  space: 'galaxy space universe vertical phone wallpaper 4k ultra hd',
+  luxury: 'luxury lifestyle aesthetic rich vertical phone wallpaper 4k ultra hd',
+  japanese: 'japanese aesthetic zen sakura vertical phone wallpaper 4k ultra hd',
+  korean: 'korean aesthetic kpop vertical phone wallpaper 4k ultra hd',
+  mythology: 'mythology gods legends vertical phone wallpaper 4k ultra hd',
+  dragons: 'dragon fire fantasy vertical phone wallpaper 4k ultra hd',
+  magic: 'magic spell wizard vertical phone wallpaper 4k ultra hd',
+  warriors: 'warrior samurai knight armor vertical phone wallpaper 4k ultra hd',
+  superheroes: 'superhero marvel dc vertical phone wallpaper 4k ultra hd',
+  horror: 'dark horror eerie creepy vertical phone wallpaper 4k ultra hd',
+  animals: 'wildlife animals cute vertical phone wallpaper 4k ultra hd',
+  sports: 'sports athlete action vertical phone wallpaper 4k ultra hd',
+  lofi: 'lofi cozy aesthetic chill vertical phone wallpaper 4k ultra hd',
+  food: 'food aesthetic delicious vertical phone wallpaper 4k ultra hd',
+  quotes: 'motivational quotes text aesthetic vertical phone wallpaper 4k',
+  weekend_specials: 'weekend vibes chill aesthetic vertical phone wallpaper 4k',
   monthly_collections: 'monthly collection best aesthetic vertical phone wallpaper 4k ultra hd',
 };
 
-// Auto-generated hashtags per category
 const CATEGORY_HASHTAGS = {
-  anime:               '#Anime #AnimeWallpaper #OtakuArt #AnimeAesthetic #DailyDrop',
-  manga:               '#Manga #MangaArt #OtakuVibes #MangaWallpaper #DailyDrop',
-  novel_art:           '#NovelArt #LightNovel #IllustrationArt #AnimeArt #DailyDrop',
-  girls:               '#GirlsWallpaper #PortraitArt #AestheticGirls #HDWallpaper #DailyDrop',
-  boys:                '#BoysWallpaper #MenStyle #PortraitWallpaper #HDWallpaper #DailyDrop',
-  cars:                '#CarWallpaper #SportsCar #CarLovers #AutoAesthetic #DailyDrop',
-  nature:              '#NatureWallpaper #NaturePhotography #Scenery #HDNature #DailyDrop',
-  gaming:              '#GamingWallpaper #GamerSetup #GamingAesthetic #PCGaming #DailyDrop',
-  aesthetic:           '#Aesthetic #AestheticWallpaper #PastelVibes #AestheticArt #DailyDrop',
-  dark:                '#DarkAesthetic #DarkWallpaper #MoodyVibes #DarkArt #DailyDrop',
-  space:               '#SpaceWallpaper #Galaxy #Universe #CosmicArt #DailyDrop',
-  city:                '#CityWallpaper #Cityscape #NightCity #UrbanAesthetic #DailyDrop',
-  abstract:            '#AbstractArt #AbstractWallpaper #ColorfulArt #DigitalArt #DailyDrop',
-  sports:              '#SportsWallpaper #AthleteArt #SportsAesthetic #FitnessVibes #DailyDrop',
-  animals:             '#AnimalWallpaper #Wildlife #CuteAnimals #NatureLovers #DailyDrop',
-  superheroes:         '#SuperheroWallpaper #Marvel #DC #ComicArt #DailyDrop',
-  flowers:             '#FlowerWallpaper #FloralArt #BloomVibes #NatureBeauty #DailyDrop',
-  quotes:              '#QuoteWallpaper #MotivationalQuotes #InspirationalArt #DailyVibes #DailyDrop',
-  fashion:             '#FashionWallpaper #StyleAesthetic #FashionArt #OOTDVibes #DailyDrop',
-  food:                '#FoodWallpaper #FoodAesthetic #FoodPhotography #Delicious #DailyDrop',
-  fantasy:             '#FantasyWallpaper #FantasyArt #MagicalWorld #EpicArt #DailyDrop',
-  sci_fi:              '#SciFiWallpaper #FuturisticArt #TechAesthetic #SciFiArt #DailyDrop',
-  horror:              '#HorrorWallpaper #DarkArt #CreepyAesthetic #HorrorArt #DailyDrop',
-  cyberpunk:           '#Cyberpunk #CyberpunkArt #NeonCity #FuturisticVibes #DailyDrop',
-  lofi:                '#LoFiWallpaper #ChillVibes #CozyAesthetic #LoFiArt #DailyDrop',
-  mountains:           '#MountainWallpaper #MountainViews #NatureAesthetic #HikingVibes #DailyDrop',
-  ocean:               '#OceanWallpaper #BeachVibes #SeaAesthetic #OceanArt #DailyDrop',
-  sunset:              '#SunsetWallpaper #GoldenHour #SunsetVibes #SkyAesthetic #DailyDrop',
-  forest:              '#ForestWallpaper #ForestVibes #NatureAesthetic #GreenArt #DailyDrop',
-  waterfall:           '#WaterfallWallpaper #NatureBeauty #WaterAesthetic #ScenicViews #DailyDrop',
-  architecture:        '#ArchitectureWallpaper #BuildingArt #DesignAesthetic #UrbanArt #DailyDrop',
-  vintage:             '#VintageWallpaper #RetroAesthetic #OldSchoolVibes #VintageArt #DailyDrop',
-  minimalist:          '#MinimalistWallpaper #CleanAesthetic #SimpleArt #MinimalVibes #DailyDrop',
-  neon:                '#NeonWallpaper #NeonAesthetic #GlowArt #NeonVibes #DailyDrop',
-  mythology:           '#MythologyArt #GodsAndLegends #MythicWallpaper #EpicArt #DailyDrop',
-  dragons:             '#DragonArt #DragonWallpaper #FantasyDragon #EpicCreatures #DailyDrop',
-  magic:               '#MagicArt #WizardWallpaper #SpellAesthetic #MagicalVibes #DailyDrop',
-  warriors:            '#WarriorArt #SamuraiWallpaper #KnightAesthetic #EpicWarriors #DailyDrop',
-  weekend_specials:    '#WeekendVibes #WeekendWallpaper #ChillAesthetic #WeekendDrop #DailyDrop',
-  monthly_collections: '#MonthlyCollection #BestWallpapers #TopPicks #HDCollection #DailyDrop',
+  anime: ['Anime', 'AnimeWallpaper', 'OtakuArt', 'AnimeAesthetic', 'DailyDrop'],
+  dark_anime: ['DarkAnime', 'AnimeAesthetic', 'MoodyAnime', 'AnimeWallpaper', 'DailyDrop'],
+  cute_anime: ['CuteAnime', 'KawaiiArt', 'AnimeGirl', 'PastelAnime', 'DailyDrop'],
+  manhwa: ['Manhwa', 'Webtoon', 'ManhwaArt', 'KoreanWebtoon', 'DailyDrop'],
+  manga: ['Manga', 'MangaArt', 'OtakuVibes', 'MangaWallpaper', 'DailyDrop'],
+  novel_art: ['NovelArt', 'LightNovel', 'IllustrationArt', 'AnimeArt', 'DailyDrop'],
+  girls: ['GirlsWallpaper', 'PortraitArt', 'AestheticGirls', 'HDWallpaper', 'DailyDrop'],
+  boys: ['BoysWallpaper', 'MenStyle', 'PortraitWallpaper', 'HDWallpaper', 'DailyDrop'],
+  fashion: ['FashionWallpaper', 'StyleAesthetic', 'FashionArt', 'OOTDVibes', 'DailyDrop'],
+  streetwear: ['Streetwear', 'UrbanFashion', 'OutfitInspo', 'StreetStyle', 'DailyDrop'],
+  cyberpunk: ['Cyberpunk', 'CyberpunkArt', 'NeonCity', 'FuturisticVibes', 'DailyDrop'],
+  gaming: ['GamingWallpaper', 'GamerSetup', 'GamingAesthetic', 'PCGaming', 'DailyDrop'],
+  sci_fi: ['SciFiWallpaper', 'FuturisticArt', 'TechAesthetic', 'SciFiArt', 'DailyDrop'],
+  technology: ['Technology', 'TechAesthetic', 'Futuristic', 'CyberVibes', 'DailyDrop'],
+  minimal: ['Minimal', 'CleanAesthetic', 'MinimalDesign', 'SimpleVibes', 'DailyDrop'],
+  amoled: ['AMOLED', 'DarkWallpaper', 'PureBlack', 'OLEDWallpaper', 'DailyDrop'],
+  aesthetic: ['Aesthetic', 'AestheticWallpaper', 'PastelVibes', 'AestheticArt', 'DailyDrop'],
+  neon: ['NeonWallpaper', 'NeonAesthetic', 'GlowArt', 'NeonVibes', 'DailyDrop'],
+  abstract: ['AbstractArt', 'AbstractWallpaper', 'ColorfulArt', 'DigitalArt', 'DailyDrop'],
+  vintage: ['VintageWallpaper', 'RetroAesthetic', 'OldSchoolVibes', 'VintageArt', 'DailyDrop'],
+  minimalist: ['MinimalistWallpaper', 'CleanAesthetic', 'SimpleArt', 'MinimalVibes', 'DailyDrop'],
+  nature: ['NatureWallpaper', 'NaturePhotography', 'Scenery', 'HDNature', 'DailyDrop'],
+  mountains: ['MountainWallpaper', 'MountainViews', 'NatureAesthetic', 'HikingVibes', 'DailyDrop'],
+  ocean: ['OceanWallpaper', 'BeachVibes', 'SeaAesthetic', 'OceanArt', 'DailyDrop'],
+  sunset: ['SunsetWallpaper', 'GoldenHour', 'SunsetVibes', 'SkyAesthetic', 'DailyDrop'],
+  forest: ['ForestWallpaper', 'ForestVibes', 'NatureAesthetic', 'GreenArt', 'DailyDrop'],
+  waterfall: ['WaterfallWallpaper', 'NatureBeauty', 'WaterAesthetic', 'ScenicViews', 'DailyDrop'],
+  flowers: ['FlowerWallpaper', 'FloralArt', 'BloomVibes', 'NatureBeauty', 'DailyDrop'],
+  rain: ['RainAesthetic', 'MoodyVibes', 'RainDay', 'Melancholy', 'DailyDrop'],
+  cars: ['CarWallpaper', 'SportsCar', 'CarLovers', 'AutoAesthetic', 'DailyDrop'],
+  architecture: ['ArchitectureWallpaper', 'BuildingArt', 'DesignAesthetic', 'UrbanArt', 'DailyDrop'],
+  city: ['CityWallpaper', 'Cityscape', 'NightCity', 'UrbanAesthetic', 'DailyDrop'],
+  night_city: ['NightCity', 'CyberpunkVibes', 'CityLights', 'NeonCity', 'DailyDrop'],
+  fantasy: ['FantasyWallpaper', 'FantasyArt', 'MagicalWorld', 'EpicArt', 'DailyDrop'],
+  space: ['SpaceWallpaper', 'Galaxy', 'Universe', 'CosmicArt', 'DailyDrop'],
+  luxury: ['LuxuryLifestyle', 'RichVibes', 'LuxuryAesthetic', 'PremiumWallpaper', 'DailyDrop'],
+  japanese: ['JapaneseAesthetic', 'ZenVibes', 'Sakura', 'TokyoAesthetic', 'DailyDrop'],
+  korean: ['KoreanAesthetic', 'KpopVibes', 'SeoulStyle', 'KoreanArt', 'DailyDrop'],
+  mythology: ['MythologyArt', 'GodsAndLegends', 'MythicWallpaper', 'EpicArt', 'DailyDrop'],
+  dragons: ['DragonArt', 'DragonWallpaper', 'FantasyDragon', 'EpicCreatures', 'DailyDrop'],
+  magic: ['MagicArt', 'WizardWallpaper', 'SpellAesthetic', 'MagicalVibes', 'DailyDrop'],
+  warriors: ['WarriorArt', 'SamuraiWallpaper', 'KnightAesthetic', 'EpicWarriors', 'DailyDrop'],
+  superheroes: ['SuperheroWallpaper', 'Marvel', 'DC', 'ComicArt', 'DailyDrop'],
+  horror: ['HorrorWallpaper', 'DarkArt', 'CreepyAesthetic', 'HorrorArt', 'DailyDrop'],
+  animals: ['AnimalWallpaper', 'Wildlife', 'CuteAnimals', 'NatureLovers', 'DailyDrop'],
+  sports: ['SportsWallpaper', 'AthleteArt', 'SportsAesthetic', 'FitnessVibes', 'DailyDrop'],
+  lofi: ['LoFiWallpaper', 'ChillVibes', 'CozyAesthetic', 'LoFiArt', 'DailyDrop'],
+  food: ['FoodWallpaper', 'FoodAesthetic', 'FoodPhotography', 'Delicious', 'DailyDrop'],
+  quotes: ['QuoteWallpaper', 'MotivationalQuotes', 'InspirationalArt', 'DailyVibes', 'DailyDrop'],
+  weekend_specials: ['WeekendVibes', 'WeekendWallpaper', 'ChillAesthetic', 'WeekendDrop', 'DailyDrop'],
+  monthly_collections: ['MonthlyCollection', 'BestWallpapers', 'TopPicks', 'HDCollection', 'DailyDrop'],
 };
 
-// Category display names and emojis
 const CATEGORY_META = {
-  anime:               { emoji: '⛩️',  name: 'Anime' },
-  manga:               { emoji: '📖',  name: 'Manga' },
-  novel_art:           { emoji: '🎨',  name: 'Novel Art' },
-  girls:               { emoji: '👩',  name: 'Girls' },
-  boys:                { emoji: '👨',  name: 'Boys' },
-  cars:                { emoji: '🚗',  name: 'Cars' },
-  nature:              { emoji: '🌿',  name: 'Nature' },
-  gaming:              { emoji: '🎮',  name: 'Gaming' },
-  aesthetic:           { emoji: '✨',  name: 'Aesthetic' },
-  dark:                { emoji: '🌑',  name: 'Dark' },
-  space:               { emoji: '🌌',  name: 'Space' },
-  city:                { emoji: '🌆',  name: 'City' },
-  abstract:            { emoji: '🎭',  name: 'Abstract' },
-  sports:              { emoji: '⚽',  name: 'Sports' },
-  animals:             { emoji: '🦁',  name: 'Animals' },
-  superheroes:         { emoji: '🦸',  name: 'Superheroes' },
-  flowers:             { emoji: '🌸',  name: 'Flowers' },
-  quotes:              { emoji: '💬',  name: 'Quotes' },
-  fashion:             { emoji: '👗',  name: 'Fashion' },
-  food:                { emoji: '🍜',  name: 'Food' },
-  fantasy:             { emoji: '🧙',  name: 'Fantasy' },
-  sci_fi:              { emoji: '🤖',  name: 'Sci-Fi' },
-  horror:              { emoji: '💀',  name: 'Horror' },
-  cyberpunk:           { emoji: '🌃',  name: 'Cyberpunk' },
-  lofi:                { emoji: '🎵',  name: 'Lo-Fi' },
-  mountains:           { emoji: '🏔️',  name: 'Mountains' },
-  ocean:               { emoji: '🌊',  name: 'Ocean' },
-  sunset:              { emoji: '🌅',  name: 'Sunset' },
-  forest:              { emoji: '🌲',  name: 'Forest' },
-  waterfall:           { emoji: '💧',  name: 'Waterfall' },
-  architecture:        { emoji: '🏛️',  name: 'Architecture' },
-  vintage:             { emoji: '📷',  name: 'Vintage' },
-  minimalist:          { emoji: '⬜',  name: 'Minimalist' },
-  neon:                { emoji: '💡',  name: 'Neon' },
-  mythology:           { emoji: '⚡',  name: 'Mythology' },
-  dragons:             { emoji: '🐉',  name: 'Dragons' },
-  magic:               { emoji: '🔮',  name: 'Magic' },
-  warriors:            { emoji: '⚔️',  name: 'Warriors' },
-  weekend_specials:    { emoji: '🎉',  name: 'Weekend Specials' },
-  monthly_collections: { emoji: '🏆',  name: 'Monthly Collection' },
+  anime: { emoji: '⛩️', name: 'Anime' },
+  dark_anime: { emoji: '🌑', name: 'Dark Anime' },
+  cute_anime: { emoji: '🌸', name: 'Cute Anime' },
+  manhwa: { emoji: '📚', name: 'Manhwa' },
+  manga: { emoji: '📖', name: 'Manga' },
+  novel_art: { emoji: '🎨', name: 'Novel Art' },
+  girls: { emoji: '👩', name: 'Girls' },
+  boys: { emoji: '👨', name: 'Boys' },
+  fashion: { emoji: '👗', name: 'Fashion' },
+  streetwear: { emoji: '🧥', name: 'Streetwear' },
+  cyberpunk: { emoji: '🌃', name: 'Cyberpunk' },
+  gaming: { emoji: '🎮', name: 'Gaming' },
+  sci_fi: { emoji: '🤖', name: 'Sci-Fi' },
+  technology: { emoji: '💻', name: 'Technology' },
+  minimal: { emoji: '➖', name: 'Minimal' },
+  amoled: { emoji: '⬛', name: 'AMOLED' },
+  aesthetic: { emoji: '✨', name: 'Aesthetic' },
+  neon: { emoji: '💡', name: 'Neon' },
+  abstract: { emoji: '🎭', name: 'Abstract' },
+  vintage: { emoji: '📷', name: 'Vintage' },
+  minimalist: { emoji: '⬜', name: 'Minimalist' },
+  nature: { emoji: '🌿', name: 'Nature' },
+  mountains: { emoji: '🏔️', name: 'Mountains' },
+  ocean: { emoji: '🌊', name: 'Ocean' },
+  sunset: { emoji: '🌅', name: 'Sunset' },
+  forest: { emoji: '🌲', name: 'Forest' },
+  waterfall: { emoji: '💧', name: 'Waterfall' },
+  flowers: { emoji: '🌸', name: 'Flowers' },
+  rain: { emoji: '🌧️', name: 'Rain' },
+  cars: { emoji: '🚗', name: 'Cars' },
+  architecture: { emoji: '🏛️', name: 'Architecture' },
+  city: { emoji: '🌆', name: 'City' },
+  night_city: { emoji: '🌃', name: 'Night City' },
+  fantasy: { emoji: '🧙', name: 'Fantasy' },
+  space: { emoji: '🌌', name: 'Space' },
+  luxury: { emoji: '💎', name: 'Luxury' },
+  japanese: { emoji: '⛩️', name: 'Japanese' },
+  korean: { emoji: '🫰', name: 'Korean' },
+  mythology: { emoji: '⚡', name: 'Mythology' },
+  dragons: { emoji: '🐉', name: 'Dragons' },
+  magic: { emoji: '🔮', name: 'Magic' },
+  warriors: { emoji: '⚔️', name: 'Warriors' },
+  superheroes: { emoji: '🦸', name: 'Superheroes' },
+  horror: { emoji: '💀', name: 'Horror' },
+  animals: { emoji: '🦁', name: 'Animals' },
+  sports: { emoji: '⚽', name: 'Sports' },
+  lofi: { emoji: '🎵', name: 'Lo-Fi' },
+  food: { emoji: '🍜', name: 'Food' },
+  quotes: { emoji: '💬', name: 'Quotes' },
+  weekend_specials: { emoji: '🎉', name: 'Weekend Specials' },
+  monthly_collections: { emoji: '🏆', name: 'Monthly Collection' },
 };
 
-// Track chats
-const allChatIds   = new Set();
+const allChatIds = new Set();
 const adminChatIds = new Set();
 
 function addAdminChannel(chatId) { if (chatId) { adminChatIds.add(String(chatId)); allChatIds.add(String(chatId)); } }
@@ -159,10 +196,9 @@ function removeAdminChannel(chatId) { if (chatId) adminChatIds.delete(String(cha
 function addChat(chatId) { if (chatId) allChatIds.add(String(chatId)); }
 function removeChat(chatId) { if (chatId) { allChatIds.delete(String(chatId)); adminChatIds.delete(String(chatId)); } }
 
-// Build premium Daily Drop caption
 function buildDropCaption(category, count) {
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) };
-  const hashtags = CATEGORY_HASHTAGS[category] || '#Wallpaper #HDWallpaper #DailyDrop';
+  const hashtags = (CATEGORY_HASHTAGS[category] || []).map(h => `#${h}`).join(' ');
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -182,11 +218,9 @@ function buildDropCaption(category, count) {
   );
 }
 
-// Build promotion buttons from DB
 async function getPromoButtons() {
   const links = await PromotionLink.find({ isEnabled: true }).sort({ order: 1 });
   if (!links.length) return [];
-  // 2 buttons per row
   const rows = [];
   for (let i = 0; i < links.length; i += 2) {
     const row = [{ text: links[i].label, url: links[i].url }];
@@ -198,49 +232,61 @@ async function getPromoButtons() {
 
 async function fetchWallpapers(category, count = 10) {
   const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k ultra hd`;
-  const images = [];
+  const cacheKey = `search_${category}_${query.substring(0, 10)}`;
 
-  if (config.apis.pexelsKey) {
+  return wallpaperCache.getOrSet(cacheKey, async () => {
+    const images = [];
+
+    // 1. DuckDuckGo search
     try {
-      const r = await axios.get('https://api.pexels.com/v1/search', {
-        params: { query, per_page: count, page: Math.floor(Math.random() * 8) + 1, orientation: 'portrait', size: 'large' },
-        headers: { Authorization: config.apis.pexelsKey },
-        timeout: 12000,
+      const r1 = await axios.get('https://duckduckgo.com/', {
+        params: { q: query, iax: 'images', ia: 'images' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
+        timeout: 10000,
       });
-      for (const photo of (r.data?.photos || [])) {
-        const url = photo.src?.original || photo.src?.large2x || photo.src?.portrait;
-        images.push({ url, width: photo.width, height: photo.height, source: 'pexels' });
+      const match = r1.data.match(/vqd=([\d-]+)/);
+      if (match) {
+        const vqd = match[1];
+        const r2 = await axios.get('https://duckduckgo.com/i.js', {
+          params: { l: 'us-en', o: 'json', q: query, vqd, f: ',,,,,', p: '1', s: '0' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36', Referer: 'https://duckduckgo.com' },
+          timeout: 10000,
+        });
+        const ddgResults = (r2.data?.results || []).map(r => ({ url: r.image, source: 'duckduckgo' }));
+        images.push(...filterUrls(ddgResults));
       }
-    } catch (e) { logger.warn(`Pexels (${category}): ${e.message}`); }
-  }
+    } catch (e) {
+      logger.warn(`DDG search (${category}): ${e.message}`);
+    }
 
-  if (images.length < count && config.apis.unsplashKey) {
-    try {
-      const r = await axios.get('https://api.unsplash.com/search/photos', {
-        params: { query, per_page: Math.min(count - images.length, 30), page: Math.floor(Math.random() * 8) + 1, orientation: 'portrait' },
-        headers: { Authorization: `Client-ID ${config.apis.unsplashKey}` },
-        timeout: 12000,
-      });
-      for (const photo of (r.data?.results || [])) {
-        const url = photo.urls?.raw || photo.urls?.full || photo.urls?.regular;
-        images.push({ url, width: photo.width, height: photo.height, source: 'unsplash' });
-      }
-    } catch (e) { logger.warn(`Unsplash (${category}): ${e.message}`); }
-  }
+    // 2. Unsplash fallback
+    if (images.length < 5 && config.apis.unsplashKey) {
+      try {
+        const r = await axios.get('https://api.unsplash.com/search/photos', {
+          params: { query, per_page: 30, orientation: 'portrait' },
+          headers: { Authorization: `Client-ID ${config.apis.unsplashKey}` },
+          timeout: 10000,
+        });
+        const unResults = (r.data?.results || []).map(p => ({ url: p.urls?.raw || p.urls?.full || p.urls?.regular, source: 'unsplash' }));
+        images.push(...filterUrls(unResults));
+      } catch (e) { logger.warn(`Unsplash (${category}): ${e.message}`); }
+    }
 
-  if (images.length < count) {
-    try {
-      const { searchImages } = require('./pinterest');
-      const page = Math.floor(Math.random() * 5);
-      const free = await searchImages(query, page, count - images.length + 8);
-      const portrait = free.filter(img => !img.w || !img.h || img.h >= img.w * 0.85);
-      for (const img of portrait.slice(0, count - images.length)) {
-        images.push({ url: img.url, width: img.w, height: img.h, source: 'free' });
-      }
-    } catch (e) { logger.warn(`Free (${category}): ${e.message}`); }
-  }
+    // 3. Pexels fallback
+    if (images.length < 5 && config.apis.pexelsKey) {
+      try {
+        const r = await axios.get('https://api.pexels.com/v1/search', {
+          params: { query, per_page: 30, orientation: 'portrait', size: 'large' },
+          headers: { Authorization: config.apis.pexelsKey },
+          timeout: 10000,
+        });
+        const pexResults = (r.data?.photos || []).map(p => ({ url: p.src?.original || p.src?.large2x || p.src?.portrait, source: 'pexels' }));
+        images.push(...filterUrls(pexResults));
+      } catch (e) { logger.warn(`Pexels (${category}): ${e.message}`); }
+    }
 
-  return images.filter(img => img.url).slice(0, count);
+    return images.filter(img => img.url).slice(0, Math.max(count, 30));
+  }, 10 * 60 * 1000);
 }
 
 async function downloadAndStoreWallpapers(category, count = 10) {
@@ -248,29 +294,51 @@ async function downloadAndStoreWallpapers(category, count = 10) {
   const dir = getWallpaperCategoryDir(category);
   const stored = [];
 
-  // Download in parallel batches of 4 for speed
-  const chunks = [];
-  for (let i = 0; i < images.length; i += 4) chunks.push(images.slice(i, i + 4));
+  const enhancerCfg = await sm.getGroup('enhancer');
+  const wmCfg = await sm.getGroup('watermark');
 
-  for (const chunk of chunks) {
-    await Promise.allSettled(chunk.map(async img => {
-      try {
-        const existing = await Wallpaper.findOne({ url: img.url });
-        if (existing) { stored.push(existing); return; }
+  for (const img of images) {
+    if (stored.length >= count) break;
 
-        const filename = `wp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const localPath = path.join(dir, filename);
+    const existing = await Wallpaper.findOne({ url: img.url });
+    if (existing) {
+      if (existing.postedToTg || existing.postedToWa) continue;
+      stored.push(existing);
+      continue;
+    }
+
+    try {
+      const r = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000 });
+      let buffer = Buffer.from(r.data);
+
+      const verify = await verifyBuffer(buffer);
+      if (!verify.ok) {
+        logger.debug(`Skipped bad image: ${verify.reason}`);
+        continue;
+      }
+
+      if (enhancerCfg && enhancerCfg.enabled) {
         try {
-          await downloadFile(img.url, localPath);
-        } catch {
-          stored.push(await Wallpaper.create({ category, url: img.url, source: img.source, width: img.width, height: img.height }));
-          return;
-        }
-        stored.push(await Wallpaper.create({ category, url: img.url, localPath, source: img.source, width: img.width, height: img.height }));
-      } catch (e) { logger.warn(`Download wp: ${e.message}`); }
-    }));
-    await sleep(100);
+          buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true });
+        } catch (e) { logger.warn(`Enhance failed: ${e.message}`); }
+      }
+
+      if (wmCfg && wmCfg.enabled) {
+        try {
+          buffer = await applyWatermark(buffer, wmCfg);
+        } catch (e) { logger.warn(`Watermark failed: ${e.message}`); }
+      }
+
+      const filename = `wp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const localPath = path.join(dir, filename);
+      fs.writeFileSync(localPath, buffer);
+
+      stored.push(await Wallpaper.create({ category, url: img.url, localPath, source: img.source, width: verify.width, height: verify.height }));
+    } catch (e) {
+      logger.warn(`Download wp failed: ${e.message}`);
+    }
   }
+
   return stored;
 }
 
@@ -289,7 +357,7 @@ async function postWallpapersToAllTgChannels(bot, category) {
   const dbChannels = await Channel.find({ isActive: true, platform: 'telegram' });
   const chatSet = new Set();
   for (const ch of dbChannels) chatSet.add(ch.chatId || ch.link);
-  if (config.channels.telegram) chatSet.add(config.channels.telegram);
+  if (config.channels?.telegram) chatSet.add(config.channels.telegram);
   for (const id of allChatIds) chatSet.add(id);
 
   if (!chatSet.size) {
@@ -300,74 +368,67 @@ async function postWallpapersToAllTgChannels(bot, category) {
   const wallpapers = await getOrFetchWallpapers(category, 10);
   if (!wallpapers.length) { logger.warn(`Drop ${category}: no wallpapers`); return []; }
 
-  const caption = buildDropCaption(category, wallpapers.length);
-  const promoRows = await getPromoButtons();
+  const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
+  const captionLines = ui.dropCaption({
+    category,
+    displayName: meta.name,
+    emoji: meta.emoji,
+    hashtags: CATEGORY_HASHTAGS[category] || [],
+    botName: config.bot.name,
+    botUsername: config.bot.username,
+  });
+  const captionText = Array.isArray(captionLines) ? captionLines.join('\n') : captionLines;
 
-  // Build DM button row
+  const promoRows = await getPromoButtons();
   const dmRow = config.bot.username
     ? [{ text: `💬 Get More in DM`, url: `https://t.me/${config.bot.username}` }]
     : null;
-
   const keyboard = [...promoRows, ...(dmRow ? [dmRow] : [])];
+  
   const posted = [];
 
   for (const chatId of chatSet) {
     const batch = wallpapers.slice(0, 10);
-
     try {
-      // Send as album (all at once, no one-by-one)
       const mediaGroup = batch.map((wp, i) => ({
         type: 'photo',
         media: (wp.localPath && fs.existsSync(wp.localPath))
           ? { source: fs.createReadStream(wp.localPath) }
           : wp.url,
-        // Only first photo gets caption in album
-        ...(i === 0 ? { caption, parse_mode: 'Markdown' } : {}),
+        ...(i === 0 ? { caption: captionText, parse_mode: 'Markdown' } : {}),
       }));
 
       await bot.telegram.sendMediaGroup(chatId, mediaGroup);
       batch.forEach(wp => posted.push({ chatId, wp }));
 
-      // Send promo/CTA message after album if there are buttons
       if (keyboard.length) {
         await sleep(800);
         await bot.telegram.sendMessage(chatId,
           `📲 *Follow for daily wallpaper drops!*\n🔁 Share with friends who love wallpapers`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: keyboard },
-          }
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } }
         ).catch(() => {});
       }
-
     } catch (albumErr) {
-      // Fallback: send photos in parallel batches of 3
-      const subChunks = [];
-      for (let i = 0; i < batch.length; i += 3) subChunks.push(batch.slice(i, i + 3));
-
       let sentCount = 0;
-      for (const sub of subChunks) {
-        await Promise.allSettled(sub.map(async (wp, idx) => {
-          try {
-            const source = (wp.localPath && fs.existsSync(wp.localPath))
-              ? { source: fs.createReadStream(wp.localPath) }
-              : wp.url;
-            const isFirst = sentCount === 0 && idx === 0;
-            await bot.telegram.sendPhoto(chatId, source, {
-              caption: isFirst ? caption : undefined,
-              parse_mode: isFirst ? 'Markdown' : undefined,
-            });
-            sentCount++;
-            posted.push({ chatId, wp });
-          } catch (e2) {
-            if (e2.message?.includes('kicked') || e2.message?.includes('not found') || e2.message?.includes('deactivated')) {
-              removeChat(chatId);
-            }
+      for (const wp of batch) {
+        try {
+          const source = (wp.localPath && fs.existsSync(wp.localPath))
+            ? { source: fs.createReadStream(wp.localPath) }
+            : wp.url;
+          const isFirst = sentCount === 0;
+          await bot.telegram.sendPhoto(chatId, source, {
+            caption: isFirst ? captionText : undefined,
+            parse_mode: isFirst ? 'Markdown' : undefined,
+          });
+          sentCount++;
+          posted.push({ chatId, wp });
+        } catch (e2) {
+          if (e2.message?.includes('kicked') || e2.message?.includes('not found') || e2.message?.includes('deactivated')) {
+            removeChat(chatId);
           }
-        }));
+        }
         await sleep(500);
       }
-
       if (sentCount > 0 && keyboard.length) {
         await bot.telegram.sendMessage(chatId,
           `📲 *Follow for daily wallpaper drops!*\n🔁 Share with friends who love wallpapers`,
@@ -375,7 +436,6 @@ async function postWallpapersToAllTgChannels(bot, category) {
         ).catch(() => {});
       }
     }
-
     logger.info(`Posted ${batch.length} ${category} wallpapers → ${chatId}`);
     await sleep(400);
   }
@@ -398,8 +458,8 @@ async function postWallpapersToWA(category) {
   if (!wallpapers.length) return [];
 
   const sock = getOwnerSock();
-  const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) };
-  const hashtags = CATEGORY_HASHTAGS[category] || '#Wallpaper #DailyDrop';
+  const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
+  const hashtags = (CATEGORY_HASHTAGS[category] || []).map(h => `#${h}`).join(' ');
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -418,11 +478,12 @@ async function postWallpapersToWA(category) {
     `_Powered by ${config.bot.name}_`;
 
   const posted = [];
+  const enhancerCfg = await sm.getGroup('enhancer');
+  const wmCfg = await sm.getGroup('watermark');
 
   for (const channel of waChannels) {
     const jid = channel.chatId || channel.link;
 
-    // Send all images in parallel batches of 3 for speed
     const chunks = [];
     for (let i = 0; i < wallpapers.length; i += 3) chunks.push(wallpapers.slice(i, i + 3));
 
@@ -430,16 +491,22 @@ async function postWallpapersToWA(category) {
     for (const chunk of chunks) {
       await Promise.allSettled(chunk.map(async (wp, idx) => {
         try {
-          let imageData;
+          let buffer;
           if (wp.localPath && fs.existsSync(wp.localPath)) {
-            imageData = fs.readFileSync(wp.localPath);
+            buffer = fs.readFileSync(wp.localPath);
           } else {
             const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000 });
-            imageData = Buffer.from(r.data);
+            buffer = Buffer.from(r.data);
+            if (enhancerCfg && enhancerCfg.enabled) {
+              buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true }).catch(() => buffer);
+            }
+            if (wmCfg && wmCfg.enabled) {
+              buffer = await applyWatermark(buffer, wmCfg).catch(() => buffer);
+            }
           }
           const isFirst = sentCount === 0 && idx === 0;
           await sock.sendMessage(jid, {
-            image: imageData,
+            image: buffer,
             caption: isFirst ? waCaption : undefined,
           });
           sentCount++;
@@ -455,6 +522,10 @@ async function postWallpapersToWA(category) {
 }
 
 async function runCategoryDrop(bot, category) {
+  const drops = await sm.getGroup('drops');
+  if (!drops.enabled) { logger.info('Drops disabled'); return; }
+  if (!drops.autoDropEnabled) { logger.info('Auto-drops disabled'); return; }
+
   logger.info(`Auto-drop: ${category}`);
   try {
     await downloadAndStoreWallpapers(category, 12);

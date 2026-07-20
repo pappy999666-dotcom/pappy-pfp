@@ -6,297 +6,439 @@ const { getUserImageDir, getUserSessionDir, downloadTelegramFile, deleteDir } = 
 const { calcImageCount } = require('../utils/helpers');
 const K = require('./keyboards');
 const config = require('../config');
-const { setState, clearState } = require('../middleware/session');
+const { clearState } = require('../middleware/session');
 const { btn, PRIMARY, SUCCESS, DANGER } = require('../utils/buttonStyles');
+const ui = require('../utils/ui');
+const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
 async function pairedList(ctx) {
-  const tid = String(ctx.from.id);
-  const sessions = await Session.find({ telegramId: tid });
+  try {
+    const tid = String(ctx.from.id);
+    const sessions = await Session.find({ telegramId: tid });
 
-  if (!sessions.length) {
-    const text = `*${config.bot.name} - Paired Accounts*\n\nNo paired accounts yet. Pair one first!`;
-    return ctx.editMessageText(text, {
-      parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: [
-        [btn('📱 Pair WhatsApp', 'pair_wa', SUCCESS)],
-        [btn('🏠 Main Menu',    'main_menu', PRIMARY)],
-      ]},
-    }).catch(() => ctx.reply(text, { parse_mode: 'Markdown' }));
+    if (!sessions.length) {
+      const text = [
+        ui.screenHeader(config.bot.name, 'Paired Accounts'),
+        '',
+        '> You have no paired accounts yet.',
+        '',
+        'Pair a WhatsApp account to start managing profile pictures and media.'
+      ].join('\n');
+      
+      return ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: [
+          [btn('📱 Pair WhatsApp', 'pair_wa', SUCCESS)],
+          [btn('🏠 Main Menu',    'main_menu', PRIMARY)],
+        ]},
+      }).catch(() => ctx.reply(text, { parse_mode: 'Markdown' }));
+    }
+
+    const btns = sessions.map(s => [
+      btn(`${s.isActive ? '🟢' : '🔴'} +${s.whatsappNumber}`, `account:${s.whatsappNumber}`, PRIMARY),
+    ]);
+    btns.push([btn('➕ Pair New Account', 'pair_wa',   SUCCESS)]);
+    btns.push([btn('🏠 Main Menu',        'main_menu', PRIMARY)]);
+
+    const text = [
+      ui.screenHeader(config.bot.name, 'Paired Accounts'),
+      '',
+      '> Tap an account below to manage it.'
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'paired_list', 'main_menu');
   }
-
-  const btns = sessions.map(s => [
-    btn(`${s.isActive ? '🟢' : '🔴'} +${s.whatsappNumber}`, `account:${s.whatsappNumber}`, PRIMARY),
-  ]);
-  btns.push([btn('➕ Pair New Account', 'pair_wa',   SUCCESS)]);
-  btns.push([btn('🏠 Main Menu',        'main_menu', PRIMARY)]);
-
-  await ctx.editMessageText(
-    `*${config.bot.name} - Your Paired Accounts*\n\nTap an account to manage it:`,
-    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: btns } }
-  ).catch(() => ctx.reply('Select account:', { reply_markup: { inline_keyboard: btns } }));
 }
 
 async function accountMenu(ctx, num) {
-  const tid = String(ctx.from.id);
-  const s = await Session.findOne({ telegramId: tid, whatsappNumber: num });
-  const job = await getActiveJob(tid, num);
-  const statusLine = s?.isActive ? '🟢 Active' : '🔴 Inactive';
-  const jobLine = job ? `\nAuto: every ${job.interval} ${job.mode}(s)` : '';
+  try {
+    const tid = String(ctx.from.id);
+    const s = await Session.findOne({ telegramId: tid, whatsappNumber: num });
+    const job = await getActiveJob(tid, num);
+    
+    const text = [
+      ui.screenHeader(config.bot.name, 'Account Manager'),
+      ui.accountHeader(num, s?.isActive, job),
+      '',
+      '> Choose an action below:'
+    ].join('\n');
 
-  await ctx.editMessageText(
-    `*${config.bot.name} - Account Manager*\n\n\`+${num}\`\nStatus: ${statusLine}${jobLine}\n\nChoose an action:`,
-    { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
-  ).catch(() => ctx.reply(`Managing +${num}`, { reply_markup: K.accountMenu(num) }));
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'account_menu', 'paired');
+  }
 }
 
 async function setPfpPrompt(ctx, num) {
-  ctx.setState({ step: 'set_pfp', num });
-  await ctx.editMessageText(
-    `*${config.bot.name} - Change Profile Picture*\n\`+${num}\`\n\nSend the image to set.\n\nFull HD - No cropping - Original ratio kept`,
-    { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }
-  ).catch(() => ctx.reply('Send your profile picture:'));
+  try {
+    ctx.setState({ step: 'set_pfp', num });
+    const text = [
+      ui.screenHeader(config.bot.name, 'Change Profile Picture'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      '> Send the image you want to set.',
+      '',
+      '✨ Full HD — No cropping — Original ratio kept'
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'set_pfp_prompt', `account:${num}`);
+  }
 }
 
 async function handlePfpImage(ctx, num, bot) {
-  const tid = String(ctx.from.id);
-  clearState(ctx.from.id);
-
-  const photo = ctx.message.photo;
-  const doc = ctx.message.document;
-  let fid;
-
-  if (doc?.mime_type?.startsWith('image/')) fid = doc.file_id;
-  else if (photo) fid = photo[photo.length - 1].file_id;
-  else return ctx.reply('Send an image file.');
-
-  const msg = await ctx.reply('⏳ Uploading to WhatsApp...');
+  let msg;
   try {
+    const tid = String(ctx.from.id);
+    clearState(ctx.from.id);
+
+    const photo = ctx.message.photo;
+    const doc = ctx.message.document;
+    let fid;
+
+    if (doc?.mime_type?.startsWith('image/')) fid = doc.file_id;
+    else if (photo) fid = photo[photo.length - 1].file_id;
+    else return ctx.reply(ui.warn('Invalid File', 'Please send a valid image file.'), { parse_mode: 'Markdown' });
+
+    msg = await ctx.reply(ui.loading('Uploading to WhatsApp...'), { parse_mode: 'Markdown' });
+    
     const dir = getUserImageDir(tid, num);
     const imgPath = await downloadTelegramFile(bot, fid, dir, `pfp_${Date.now()}`);
     await setProfilePicture(tid, num, imgPath);
+    
     await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
-      `✅ *Profile picture updated!*\n\`+${num}\``,
+      ui.success('Profile Picture Updated', `Account: +${num}`),
       { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
     );
-  } catch (e) {
-    logger.error('set pfp: ' + e.message);
-    await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
-      `❌ Failed: ${e.message}`,
-      { reply_markup: K.back(`account:${num}`) }
-    );
+  } catch (err) {
+    if (msg) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
+    }
+    return eh.handle(ctx, err, 'set_pfp', `account:${num}`);
   }
 }
 
 async function getPfp(ctx, num) {
-  const tid = String(ctx.from.id);
-  const msg = await ctx.reply('Fetching profile picture...');
+  let msg;
   try {
+    const tid = String(ctx.from.id);
+    msg = await ctx.reply(ui.loading('Fetching profile picture...'), { parse_mode: 'Markdown' });
+    
     const url = await getProfilePicture(tid, num);
     await ctx.replyWithPhoto(url, {
-      caption: `*Current Profile Picture*\n\`+${num}\``,
+      caption: `*Current Profile Picture*\n${ui.codeBlock('+' + num)}`,
       parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`),
     });
+    
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
-  } catch (e) {
-    await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
-      `${e.message}`, { reply_markup: K.back(`account:${num}`) }
-    );
+  } catch (err) {
+    if (msg) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
+    }
+    return eh.handle(ctx, err, 'get_pfp', `account:${num}`);
   }
 }
 
 async function delPfpConfirm(ctx, num) {
-  await ctx.editMessageText(
-    `*Delete Profile Picture*\n\`+${num}\`\n\nAre you sure?`,
-    { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_del_pfp:${num}`, `account:${num}`) }
-  ).catch(() => {});
+  try {
+    const text = [
+      ui.screenHeader('Delete PFP', 'Confirmation'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      ui.confirm('Delete Profile Picture', 'This will remove your current WhatsApp profile picture.', 'Are you sure?')
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_del_pfp:${num}`, `account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_del_pfp:${num}`, `account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'del_pfp_confirm', `account:${num}`);
+  }
 }
 
 async function delPfpDo(ctx, num) {
-  const tid = String(ctx.from.id);
+  let msg;
   try {
+    const tid = String(ctx.from.id);
+    msg = await ctx.editMessageText(ui.loading('Deleting profile picture...'), { parse_mode: 'Markdown' }).catch(() => null);
+    
     await deleteProfilePicture(tid, num);
-    await ctx.editMessageText(`✅ Profile picture deleted.\n\`+${num}\``,
-      { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) });
-  } catch (e) {
-    await ctx.editMessageText(`${e.message}`, { reply_markup: K.back(`account:${num}`) });
+    
+    const text = ui.success('Profile Picture Deleted', `Account: +${num}`);
+    if (msg) {
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, text, { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) });
+    } else {
+      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }).catch(() => {});
+    }
+  } catch (err) {
+    return eh.handle(ctx, err, 'del_pfp', `account:${num}`);
   }
 }
 
 async function setNamePrompt(ctx, num) {
-  ctx.setState({ step: 'setname_text', num });
-  await ctx.editMessageText(
-    `*${config.bot.name} - Change WhatsApp Display Name*\n\`+${num}\`\n\nSend the new display name you want to set:`,
-    { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }
-  ).catch(() => ctx.reply('Send the new display name:'));
+  try {
+    ctx.setState({ step: 'setname_text', num });
+    const text = [
+      ui.screenHeader(config.bot.name, 'Change Display Name'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      '> Send the new display name you want to set.'
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'set_name_prompt', `account:${num}`);
+  }
 }
 
 async function handleSetName(ctx, num) {
-  const tid = String(ctx.from.id);
-  clearState(ctx.from.id);
-  const name = ctx.message.text?.trim();
-
-  if (!name || name.length < 1 || name.length > 25) {
-    return ctx.reply('Name must be 1-25 characters long. Try again.');
-  }
-
-  const msg = await ctx.reply(`⏳ Changing display name to *${name}*...`, { parse_mode: 'Markdown' });
+  let msg;
   try {
+    const tid = String(ctx.from.id);
+    clearState(ctx.from.id);
+    const name = ctx.message.text?.trim();
+
+    if (!name || name.length < 1 || name.length > 25) {
+      return ctx.reply(ui.warn('Invalid Name', 'Name must be 1-25 characters long. Try again.'), { parse_mode: 'Markdown' });
+    }
+
+    msg = await ctx.reply(ui.loading(`Changing display name to *${name}*...`), { parse_mode: 'Markdown' });
+    
     await setDisplayName(tid, num, name);
+    
     await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
-      `✅ *Display name changed to "${name}"!*\n\`+${num}\``,
+      ui.success('Display Name Changed', `Account: +${num}`, `New Name: ${name}`),
       { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
     );
-  } catch (e) {
-    logger.error('setname: ' + e.message);
-    await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
-      `❌ Failed: ${e.message}`,
-      { reply_markup: K.back(`account:${num}`) }
-    );
+  } catch (err) {
+    if (msg) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
+    }
+    return eh.handle(ctx, err, 'set_name', `account:${num}`);
   }
 }
 
 async function autoMenu(ctx, num) {
-  const tid = String(ctx.from.id);
-  const job = await getActiveJob(tid, num);
-  const warning = job
-    ? `\n\n*Active:* every ${job.interval} ${job.mode}(s) - stop it before starting a new one.`
-    : '';
-  await ctx.editMessageText(
-    `*${config.bot.name} - Auto Change Profile Picture*\n\`+${num}\`${warning}\n\nChoose schedule mode:`,
-    { parse_mode: 'Markdown', reply_markup: K.autoMenu(num) }
-  ).catch(() => {});
+  try {
+    const tid = String(ctx.from.id);
+    const job = await getActiveJob(tid, num);
+    
+    const parts = [
+      ui.screenHeader(config.bot.name, 'Auto Change PFP'),
+      ui.stat('📱', 'Account', `+${num}`)
+    ];
+    
+    if (job) {
+      parts.push('', ui.warn('Active Schedule', `Every ${job.interval} ${job.mode}(s) - stop it before starting a new one.`));
+    }
+    
+    parts.push('', '> Choose schedule mode:');
+
+    await ctx.editMessageText(parts.join('\n'), { parse_mode: 'Markdown', reply_markup: K.autoMenu(num) })
+      .catch(() => ctx.reply(parts.join('\n'), { parse_mode: 'Markdown', reply_markup: K.autoMenu(num) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'auto_menu', `account:${num}`);
+  }
 }
 
 async function autoHourPrompt(ctx, num) {
-  const tid = String(ctx.from.id);
-  if (await getActiveJob(tid, num)) {
-    return ctx.editMessageText('Stop current auto-change job first.',
-      { reply_markup: K.back(`account:${num}`) });
+  try {
+    const tid = String(ctx.from.id);
+    if (await getActiveJob(tid, num)) {
+      return ctx.editMessageText(ui.warn('Schedule Exists', 'Stop current auto-change job first.'), { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) });
+    }
+    
+    ctx.setState({ step: 'auto_hour_interval', num });
+    const text = [
+      ui.screenHeader('Auto Change', 'Hour Based'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      '> How many hours between changes? (1-24)',
+      '',
+      '*Examples:*',
+      '• 1h = 24 images',
+      '• 2h = 12 images',
+      '• 6h = 4 images',
+      '• 12h = 2 images'
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'auto_hour_prompt', `account:${num}`);
   }
-  ctx.setState({ step: 'auto_hour_interval', num });
-  await ctx.editMessageText(
-    `*Hour Based Auto Change*\n\`+${num}\`\n\nHow many hours between changes? (1-24)\n\nExamples:\n- 1h = 24 images\n- 2h = 12 images\n- 6h = 4 images\n- 12h = 2 images`,
-    { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }
-  ).catch(() => ctx.reply('Hours between changes (1-24):'));
 }
 
 async function autoDayPrompt(ctx, num) {
-  const tid = String(ctx.from.id);
-  if (await getActiveJob(tid, num)) {
-    return ctx.editMessageText('Stop current auto-change job first.',
-      { reply_markup: K.back(`account:${num}`) });
+  try {
+    const tid = String(ctx.from.id);
+    if (await getActiveJob(tid, num)) {
+      return ctx.editMessageText(ui.warn('Schedule Exists', 'Stop current auto-change job first.'), { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) });
+    }
+    
+    ctx.setState({ step: 'auto_day_interval', num });
+    const text = [
+      ui.screenHeader('Auto Change', 'Day Based'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      '> How many days between changes? (1-30)'
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'auto_day_prompt', `account:${num}`);
   }
-  ctx.setState({ step: 'auto_day_interval', num });
-  await ctx.editMessageText(
-    `*Day Based Auto Change*\n\`+${num}\`\n\nHow many days between changes? (1-30)`,
-    { parse_mode: 'Markdown', reply_markup: K.back(`account:${num}`) }
-  ).catch(() => ctx.reply('Days between changes (1-30):'));
 }
 
 async function handleAutoInterval(ctx) {
-  const { step, num } = ctx.userState;
-  const n = parseInt(ctx.message.text?.trim());
-  const isHour = step === 'auto_hour_interval';
+  try {
+    const { step, num } = ctx.userState;
+    const n = parseInt(ctx.message.text?.trim());
+    const isHour = step === 'auto_hour_interval';
 
-  if (isHour && (isNaN(n) || n < 1 || n > 24))
-    return ctx.reply('Enter a number 1-24.');
-  if (!isHour && (isNaN(n) || n < 1 || n > 30))
-    return ctx.reply('Enter a number 1-30.');
+    if (isHour && (isNaN(n) || n < 1 || n > 24))
+      return ctx.reply(ui.warn('Invalid Input', 'Enter a number 1-24.'), { parse_mode: 'Markdown' });
+    if (!isHour && (isNaN(n) || n < 1 || n > 30))
+      return ctx.reply(ui.warn('Invalid Input', 'Enter a number 1-30.'), { parse_mode: 'Markdown' });
 
-  const mode = isHour ? 'hour' : 'day';
-  const required = calcImageCount(mode, n);
+    const mode = isHour ? 'hour' : 'day';
+    const required = calcImageCount(mode, n);
 
-  ctx.setState({ step: `auto_${mode}_images`, num, interval: n, required, images: [] });
-  await ctx.reply(
-    `*${isHour ? `Every ${n} hour(s)` : `Every ${n} day(s)`}*\n\nI need *${required} image(s)* total.\n\nSend them one by one.`,
-    { parse_mode: 'Markdown' }
-  );
+    ctx.setState({ step: `auto_${mode}_images`, num, interval: n, required, images: [] });
+    
+    const text = [
+      ui.screenHeader('Schedule Setup', `Every ${n} ${mode}(s)`),
+      '',
+      `> I need *${required} image(s)* total.`,
+      '',
+      'Send them one by one.'
+    ].join('\n');
+    
+    await ctx.reply(text, { parse_mode: 'Markdown' });
+  } catch (err) {
+    return eh.handle(ctx, err, 'auto_interval', `account:${ctx.userState?.num || ''}`);
+  }
 }
 
 async function handleAutoImages(ctx, bot) {
-  const { step, num, interval, required, images } = ctx.userState;
-  const mode = step.includes('hour') ? 'hour' : 'day';
-  const tid = String(ctx.from.id);
-
-  const photo = ctx.message.photo;
-  const doc = ctx.message.document;
-  let fid;
-
-  if (doc?.mime_type?.startsWith('image/')) fid = doc.file_id;
-  else if (photo) fid = photo[photo.length - 1].file_id;
-  else return ctx.reply('Send an image.');
-
-  const dir = getUserImageDir(tid, num);
-  const imgPath = await downloadTelegramFile(bot, fid, dir, `auto_${mode}_${images.length}`);
-  images.push(imgPath);
-  ctx.setState({ ...ctx.userState, images });
-
-  if (images.length < required) {
-    return ctx.reply(`Image ${images.length}/${required} received. ${required - images.length} more needed.`);
-  }
-
-  clearState(ctx.from.id);
-  const m = await ctx.reply('Setting up scheduler...');
+  let m;
   try {
+    const { step, num, interval, required, images } = ctx.userState;
+    const mode = step.includes('hour') ? 'hour' : 'day';
+    const tid = String(ctx.from.id);
+
+    const photo = ctx.message.photo;
+    const doc = ctx.message.document;
+    let fid;
+
+    if (doc?.mime_type?.startsWith('image/')) fid = doc.file_id;
+    else if (photo) fid = photo[photo.length - 1].file_id;
+    else return ctx.reply(ui.warn('Invalid File', 'Please send an image.'), { parse_mode: 'Markdown' });
+
+    const dir = getUserImageDir(tid, num);
+    const imgPath = await downloadTelegramFile(bot, fid, dir, `auto_${mode}_${images.length}`);
+    images.push(imgPath);
+    ctx.setState({ ...ctx.userState, images });
+
+    if (images.length < required) {
+      return ctx.reply(ui.taskProgress('Images received', images.length, required), { parse_mode: 'Markdown' });
+    }
+
+    clearState(ctx.from.id);
+    m = await ctx.reply(ui.loading('Setting up scheduler...'), { parse_mode: 'Markdown' });
+    
     await scheduleJob(tid, num, mode, interval, images);
-    await ctx.telegram.editMessageText(ctx.chat.id, m.message_id, null,
-      `✅ *Auto Change Scheduled!*\n\n\`+${num}\`\nMode: every ${interval} ${mode}(s)\n${images.length} images\n\nYou'll be notified on each change!`,
-      { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
-    );
-  } catch (e) {
-    logger.error('schedule: ' + e.message);
-    await ctx.telegram.editMessageText(ctx.chat.id, m.message_id, null,
-      `Schedule failed: ${e.message}`,
-      { reply_markup: K.back(`account:${num}`) }
-    );
+    
+    const text = [
+      ui.success('Auto Change Scheduled!'),
+      ui.stat('📱', 'Account', `+${num}`),
+      ui.stat('⏱️', 'Schedule', `Every ${interval} ${mode}(s)`),
+      ui.stat('🖼️', 'Images', `${images.length} items`),
+      '',
+      '> You will be notified on each change!'
+    ].join('\n');
+    
+    await ctx.telegram.editMessageText(ctx.chat.id, m.message_id, null, text, { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) });
+  } catch (err) {
+    if (m) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, m.message_id).catch(() => {});
+    }
+    return eh.handle(ctx, err, 'auto_images', `account:${ctx.userState?.num || ''}`);
   }
 }
 
 async function stopAuto(ctx, num) {
-  const tid = String(ctx.from.id);
   try {
+    const tid = String(ctx.from.id);
     await cancelJob(tid, num);
     await ctx.editMessageText(
-      `✅ *Auto change stopped.*\n\`+${num}\``,
+      ui.success('Auto Change Stopped', `Account: +${num}`),
       { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
     );
-  } catch (e) {
-    await ctx.editMessageText(`${e.message}`, { reply_markup: K.back(`account:${num}`) });
+  } catch (err) {
+    return eh.handle(ctx, err, 'stop_auto', `account:${num}`);
   }
 }
 
 async function purgeConfirm(ctx, num) {
-  await ctx.editMessageText(
-    `*Purge Session*\n\`+${num}\`\n\nThis permanently deletes:\n- Session data\n- Stored images\n- Active schedules\n\n*Cannot be undone!*`,
-    { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_purge:${num}`, `account:${num}`) }
-  ).catch(() => {});
+  try {
+    const text = [
+      ui.screenHeader('Purge Session', 'Danger Zone'),
+      ui.stat('📱', 'Account', `+${num}`),
+      '',
+      ui.confirm('Permanent Deletion', 'This will delete session data, stored images, and active schedules.', '*Cannot be undone!*')
+    ].join('\n');
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_purge:${num}`, `account:${num}`) })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.confirm(`confirm_purge:${num}`, `account:${num}`) }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'purge_confirm', `account:${num}`);
+  }
 }
 
 async function purgeDo(ctx, num) {
-  const tid = String(ctx.from.id);
+  let msg;
   try {
+    const tid = String(ctx.from.id);
+    msg = await ctx.editMessageText(ui.loading('Purging session data...'), { parse_mode: 'Markdown' }).catch(() => null);
+    
     await cancelJob(tid, num);
     await disconnect(tid, num);
     deleteDir(getUserImageDir(tid, num));
     deleteDir(getUserSessionDir(tid, num));
     await Session.findOneAndDelete({ telegramId: tid, whatsappNumber: num });
-    await ctx.editMessageText(
-      `✅ *Session purged.*\n\nAll data for \`+${num}\` deleted.`,
-      { parse_mode: 'Markdown', reply_markup: K.backMain() }
-    );
-  } catch (e) {
-    await ctx.editMessageText(`${e.message}`, { reply_markup: K.back(`account:${num}`) });
+    
+    const text = ui.success('Session Purged', `All data for +${num} has been permanently deleted.`);
+    
+    if (msg) {
+      await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, text, { parse_mode: 'Markdown', reply_markup: K.backMain() });
+    } else {
+      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.backMain() }).catch(() => {});
+    }
+  } catch (err) {
+    return eh.handle(ctx, err, 'purge', `account:${num}`);
   }
 }
 
 async function makePermanent(ctx, num) {
-  await Session.findOneAndUpdate({ telegramId: String(ctx.from.id), whatsappNumber: num }, { isPermanent: true });
-  await ctx.answerCbQuery('Session marked permanent!').catch(() => {});
-  await ctx.editMessageText(
-    `✅ *Session is now permanent.*\n\`+${num}\``,
-    { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
-  ).catch(() => {});
+  try {
+    await Session.findOneAndUpdate({ telegramId: String(ctx.from.id), whatsappNumber: num }, { isPermanent: true });
+    await ctx.answerCbQuery('Session marked permanent!').catch(() => {});
+    await ctx.editMessageText(
+      ui.success('Session is now permanent', `Account: +${num}`),
+      { parse_mode: 'Markdown', reply_markup: K.accountMenu(num) }
+    ).catch(() => {});
+  } catch (err) {
+    return eh.handle(ctx, err, 'make_permanent', `account:${num}`);
+  }
 }
 
 module.exports = {

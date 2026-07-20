@@ -1,25 +1,38 @@
 const { searchImages } = require('../services/pinterest');
 const K = require('./keyboards');
 const config = require('../config');
+const ui = require('../utils/ui');
+const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
 async function start(ctx) {
-  ctx.setState({ step: 'pi_query' });
-  const text = `*${config.bot.name} - Image Search*\n\nSend a keyword to search for HD images (up to 20 per page).\n\n_Example:_ \`sukuna\`, \`anime girl\`, \`nature 4k\``;
-  const kb = K.back('main_menu');
-  await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: kb })
-    .catch(() => ctx.reply(text, { parse_mode: 'Markdown' }));
+  try {
+    ctx.setState({ step: 'pi_query' });
+    const text = [
+      ui.screenHeader(config.bot.name, 'Image Search'),
+      '',
+      '> Send a keyword to search for HD images (up to 20 per page).',
+      '',
+      ui.italic('Examples: `sukuna`, `anime girl`, `nature 4k`')
+    ].join('\n');
+    
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') })
+      .catch(() => ctx.reply(text, { parse_mode: 'Markdown', reply_markup: K.back('main_menu') }));
+  } catch (err) {
+    return eh.handle(ctx, err, 'pinterest_start', 'main_menu');
+  }
 }
 
 async function search(ctx, query, page = 0) {
-  const msg = await ctx.reply(`🔍 Searching for *"${query}"*...`, { parse_mode: 'Markdown' });
-
+  let msg;
   try {
+    msg = await ctx.reply(ui.loading(`Searching for *"${query}"*...`), { parse_mode: 'Markdown' });
+
     const imgs = await searchImages(query, page, 20);
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
 
     if (!imgs.length) {
-      return ctx.reply(`No images found for *"${query}"*.`, {
+      return ctx.reply(ui.info('No Results', `No images found for *"${query}"*.`), {
         parse_mode: 'Markdown', reply_markup: K.backMain(),
       });
     }
@@ -52,20 +65,23 @@ async function search(ctx, query, page = 0) {
       }
     }
 
-    await ctx.reply(`Showing *${imgs.length}* images for *"${query}"*`, {
+    await ctx.reply(`> Showing *${imgs.length}* images for *"${query}"*`, {
       parse_mode: 'Markdown',
       reply_markup: K.pinterestBottom(query, page),
     });
-  } catch (e) {
-    logger.error('Pinterest: ' + e.message);
-    await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
-    await ctx.reply('Search failed. Try again later.', { reply_markup: K.backMain() });
+  } catch (err) {
+    if (msg) await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
+    return eh.handle(ctx, err, 'pinterest_search', 'main_menu');
   }
 }
 
 async function more(ctx, page, query) {
-  await ctx.answerCbQuery('Loading...').catch(() => {});
-  await search(ctx, query, page);
+  try {
+    await ctx.answerCbQuery('Loading...').catch(() => {});
+    await search(ctx, query, page);
+  } catch (err) {
+    return eh.handle(ctx, err, 'pinterest_more', 'main_menu');
+  }
 }
 
 module.exports = { start, search, more };

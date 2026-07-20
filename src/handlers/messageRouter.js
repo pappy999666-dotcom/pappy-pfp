@@ -7,6 +7,9 @@ const gp = require('./groupPfpHandler');
 const dl = require('./downloadHandler');
 const ig = require('./imageGenHandler');
 const ow = require('../owner/ownerHandler');
+const sm = require('../config/settingsManager');
+const ui = require('../utils/ui');
+const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
 async function route(ctx, bot) {
@@ -15,6 +18,12 @@ async function route(ctx, bot) {
   if (!step) return;
 
   try {
+    const maint = await sm.get('maintenance.enabled');
+    if (maint && !owner) {
+      const msg = await sm.get('maintenance.message');
+      return ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' });
+    }
+
     switch (step) {
       case 'pi_query':
         ctx.clearState();
@@ -93,11 +102,14 @@ async function route(ctx, bot) {
         break;
 
       default:
+        if (step.startsWith('o_settings_') && owner) {
+          const ows = require('./ownerSettingsHandler');
+          return ows.handleInput(ctx, bot);
+        }
         break;
     }
   } catch (err) {
-    logger.error('msg router: ' + err.message);
-    await ctx.reply('Something went wrong. Try again.').catch(() => {});
+    return eh.handle(ctx, err, 'message_router', 'main_menu');
   }
 }
 

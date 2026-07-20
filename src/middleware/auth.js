@@ -4,14 +4,18 @@ const { btn, SUCCESS } = require('../utils/buttonStyles');
 
 function isOwner(id) { return config.ownerIds.includes(String(id)); }
 
-async function upsertUser(ctx) {
-  if (!ctx.from) return;
-  const { id, username, first_name, last_name } = ctx.from;
-  await User.findOneAndUpdate(
-    { telegramId: String(id) },
-    { telegramId: String(id), username, firstName: first_name, lastName: last_name, lastActive: new Date() },
-    { upsert: true }
-  ).catch(() => {});
+async function upsertUser(ctx, next) {
+  if (ctx.from) {
+    const { id, username, first_name, last_name } = ctx.from;
+    await User.findOneAndUpdate(
+      { telegramId: String(id) },
+      { telegramId: String(id), username, firstName: first_name, lastName: last_name, lastActive: new Date() },
+      { upsert: true }
+    ).catch(() => {});
+  }
+  if (typeof next === 'function') {
+    return next();
+  }
 }
 
 async function checkForceJoin(ctx, bot) {

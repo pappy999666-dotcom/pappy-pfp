@@ -1,18 +1,7 @@
-/**
- * keyboards.js — Centralised inline keyboard factory
- *
- * All buttons use Telegram's 2026 colored button system where appropriate:
- *   primary (blue)  — navigation / view / info
- *   success (green) — confirm / create / apply / pair actions
- *   danger  (red)   — delete / purge / stop / destructive actions
- *   (none)          — neutral / back / passive buttons
- */
-
 const config = require('../config');
 const { btn, backBtn, mainMenuBtn, PRIMARY, SUCCESS, DANGER } = require('../utils/buttonStyles');
 
 const K = {
-  /* ── Main menu ─────────────────────────────────────────────────────────── */
   mainMenu(owner = false) {
     const b = [
       [btn('🖼️ Pinterest Images',  'pinterest',  PRIMARY)],
@@ -28,7 +17,6 @@ const K = {
     return { inline_keyboard: b };
   },
 
-  /* ── Account management ─────────────────────────────────────────────────── */
   accountMenu(num) {
     return { inline_keyboard: [
       [btn('🖼️ Change Profile Picture', `set_pfp:${num}`,   SUCCESS)],
@@ -42,7 +30,6 @@ const K = {
     ]};
   },
 
-  /* ── After pairing ──────────────────────────────────────────────────────── */
   afterPair(num) {
     return { inline_keyboard: [
       [btn('🖼️ Set Profile Picture',    `set_pfp:${num}`, SUCCESS)],
@@ -52,7 +39,6 @@ const K = {
     ]};
   },
 
-  /* ── Auto-change schedule mode ──────────────────────────────────────────── */
   autoMenu(num) {
     return { inline_keyboard: [
       [btn('⏰ Hour Based', `auto_hour:${num}`, SUCCESS),
@@ -61,7 +47,6 @@ const K = {
     ]};
   },
 
-  /* ── Group PFP ──────────────────────────────────────────────────────────── */
   groupPfpMenu() {
     return { inline_keyboard: [
       [btn('⚡ Immediate Change',       'gpfp_immediate', SUCCESS)],
@@ -71,7 +56,6 @@ const K = {
     ]};
   },
 
-  /* ── Download platform picker ───────────────────────────────────────────── */
   downloadMenu() {
     return { inline_keyboard: [
       [btn('📌 Pinterest',  'dl_pinterest', PRIMARY),
@@ -87,35 +71,37 @@ const K = {
     ]};
   },
 
-  /* ── Wallpaper category grid ────────────────────────────────────────────── */
   wallpaperCategories() {
     return { inline_keyboard: [
-      [btn('🎌 Anime',     'wp_anime',     PRIMARY), btn('📖 Manga',      'wp_manga',      PRIMARY)],
-      [btn('📚 Novel Art', 'wp_novel_art', PRIMARY), btn('👧 Girls',       'wp_girls',      PRIMARY)],
-      [btn('👦 Boys',      'wp_boys',      PRIMARY), btn('🚗 Cars',        'wp_cars',       PRIMARY)],
-      [btn('🌿 Nature',    'wp_nature',    PRIMARY), btn('🎮 Gaming',      'wp_gaming',     PRIMARY)],
-      [btn('✨ Aesthetic', 'wp_aesthetic', PRIMARY), btn('🌑 Dark',        'wp_dark',       PRIMARY)],
-      [btn('🌌 Space',     'wp_space',     PRIMARY), btn('🌆 City',        'wp_city',       PRIMARY)],
-      [btn('🎨 Abstract',  'wp_abstract',  PRIMARY), btn('⚽ Sports',      'wp_sports',     PRIMARY)],
-      [btn('🦁 Animals',   'wp_animals',   PRIMARY), btn('🦸 Superheroes', 'wp_superheroes',PRIMARY)],
-      [btn('🌸 Flowers',   'wp_flowers',   PRIMARY), btn('💬 Quotes',      'wp_quotes',     PRIMARY)],
-      [btn('👗 Fashion',   'wp_fashion',   PRIMARY), btn('🍕 Food',        'wp_food',       PRIMARY)],
-      [btn('🧙 Fantasy',   'wp_fantasy',   PRIMARY), btn('🚀 Sci-Fi',      'wp_sci_fi',     PRIMARY)],
-      [btn('👻 Horror',    'wp_horror',    PRIMARY), btn('🤖 Cyberpunk',   'wp_cyberpunk',  PRIMARY)],
-      [btn('🎵 Lofi',      'wp_lofi',      PRIMARY), btn('⛰ Mountains',   'wp_mountains',  PRIMARY)],
-      [btn('🌊 Ocean',     'wp_ocean',     PRIMARY), btn('🌅 Sunset',      'wp_sunset',     PRIMARY)],
-      [btn('🌲 Forest',    'wp_forest',    PRIMARY), btn('💧 Waterfall',   'wp_waterfall',  PRIMARY)],
-      [btn('🏛 Architecture','wp_architecture',PRIMARY),btn('📷 Vintage',  'wp_vintage',    PRIMARY)],
-      [btn('⬜ Minimalist','wp_minimalist', PRIMARY), btn('💡 Neon',        'wp_neon',       PRIMARY)],
-      [btn('⚡ Mythology', 'wp_mythology', PRIMARY), btn('🐉 Dragons',     'wp_dragons',    PRIMARY)],
-      [btn('✨ Magic',     'wp_magic',     PRIMARY), btn('⚔ Warriors',    'wp_warriors',   PRIMARY)],
-      [btn('🎉 Weekend Specials',    'wp_weekend_specials',    PRIMARY)],
-      [btn('📅 Monthly Collections', 'wp_monthly_collections', PRIMARY)],
+      [btn('🎌 Anime', 'wp_anime', PRIMARY), btn('🌑 Dark Anime', 'wp_dark_anime', PRIMARY)],
+      [btn('🌸 Cute Anime', 'wp_cute_anime', PRIMARY), btn('📖 Manhwa', 'wp_manhwa', PRIMARY)],
+      [btn('🤖 Cyberpunk', 'wp_cyberpunk', PRIMARY), btn('🎮 Gaming', 'wp_gaming', PRIMARY)],
+      [btn('⬜ Minimal', 'wp_minimal', PRIMARY), btn('⚫ AMOLED', 'wp_amoled', PRIMARY)],
+      [btn('🌿 Nature', 'wp_nature', PRIMARY), btn('🚗 Cars', 'wp_cars', PRIMARY)],
+      [btn('🏛 Architecture', 'wp_architecture', PRIMARY), btn('💡 Neon', 'wp_neon', PRIMARY)],
+      [btn('🎨 Aesthetic', 'wp_aesthetic', PRIMARY), btn('🏔 Fantasy', 'wp_fantasy', PRIMARY)],
+      [btn('👕 Streetwear', 'wp_streetwear', PRIMARY), btn('💻 Technology', 'wp_technology', PRIMARY)],
+      [btn('🚀 Space', 'wp_space', PRIMARY), btn('🌧 Rain', 'wp_rain', PRIMARY)],
+      [btn('💎 Luxury', 'wp_luxury', PRIMARY), btn('⛩ Japanese', 'wp_japanese', PRIMARY)],
+      [btn('🌷 Korean', 'wp_korean', PRIMARY), btn('🎭 Abstract', 'wp_abstract', PRIMARY)],
+      [btn('🌃 Night City', 'wp_night_city', PRIMARY), btn('📘 Manga', 'wp_manga', PRIMARY)],
+      [btn('📚 Novel Art', 'wp_novel_art', PRIMARY), btn('👧 Girls', 'wp_girls', PRIMARY)],
+      [btn('👦 Boys', 'wp_boys', PRIMARY), btn('⚽ Sports', 'wp_sports', PRIMARY)],
+      [btn('🦁 Animals', 'wp_animals', PRIMARY), btn('🦸 Superheroes', 'wp_superheroes', PRIMARY)],
+      [btn('🌸 Flowers', 'wp_flowers', PRIMARY), btn('💬 Quotes', 'wp_quotes', PRIMARY)],
+      [btn('👗 Fashion', 'wp_fashion', PRIMARY), btn('🍕 Food', 'wp_food', PRIMARY)],
+      [btn('🚀 Sci-Fi', 'wp_sci_fi', PRIMARY), btn('💀 Horror', 'wp_horror', PRIMARY)],
+      [btn('☕ Lofi', 'wp_lofi', PRIMARY), btn('⛰ Mountains', 'wp_mountains', PRIMARY)],
+      [btn('🌊 Ocean', 'wp_ocean', PRIMARY), btn('🌅 Sunset', 'wp_sunset', PRIMARY)],
+      [btn('🌲 Forest', 'wp_forest', PRIMARY), btn('💧 Waterfall', 'wp_waterfall', PRIMARY)],
+      [btn('📷 Vintage', 'wp_vintage', PRIMARY), btn('🔲 Minimalist', 'wp_minimalist', PRIMARY)],
+      [btn('⚡ Mythology', 'wp_mythology', PRIMARY), btn('🐉 Dragons', 'wp_dragons', PRIMARY)],
+      [btn('✨ Magic', 'wp_magic', PRIMARY), btn('⚔ Warriors', 'wp_warriors', PRIMARY)],
+      [btn('🎉 Weekend Specials', 'wp_weekend_specials', PRIMARY)],
       [mainMenuBtn()],
     ]};
   },
 
-  /* ── Pinterest pagination ───────────────────────────────────────────────── */
   pinterestBottom(q, page) {
     return { inline_keyboard: [[
       btn('➕ View More', `pi_more:${page + 1}:${q}`, SUCCESS),
@@ -123,7 +109,6 @@ const K = {
     ]]};
   },
 
-  /* ── Owner panel ────────────────────────────────────────────────────────── */
   ownerPanel() {
     return { inline_keyboard: [
       [btn('🚀 Drop Wallpapers NOW',  'o_drop_now',  SUCCESS)],
@@ -133,24 +118,29 @@ const K = {
       [btn('🔒 Force Join Settings',  'o_fj',        PRIMARY)],
       [btn('📢 Channel Management',   'o_channels',  PRIMARY)],
       [btn('📣 Promotion Manager',     'o_promo',     SUCCESS)],
+      [btn('⚙️ Settings & Advanced',  'o_settings',  PRIMARY)],
+      [mainMenuBtn()],
+    ]};
+  },
+
+  ownerSettingsMenu() {
+    return { inline_keyboard: [
       [btn('🔍 Get WA JIDs',           'o_jid',       PRIMARY)],
       [btn('📱 Owner WA Status',      'o_wa_status', PRIMARY)],
       [btn('🔧 Set/Change Owner WA',  'o_wa_set',    SUCCESS)],
       [btn('🔗 Pair Owner WA',        'o_wa_pair',   SUCCESS)],
       [btn('🔄 Restart Bot',          'o_restart',   DANGER)],
-      [mainMenuBtn()],
+      [backBtn('owner')],
     ]};
   },
 
-  /* ── Drop-now confirmation ──────────────────────────────────────────────── */
   dropNowConfirm() {
     return { inline_keyboard: [
-      [btn('✅ Yes — Drop All 40 Categories Now', 'o_drop_now_confirm', SUCCESS)],
-      [btn('❌ Cancel',                            'owner',              DANGER)],
+      [btn('✅ Yes — Drop All Now', 'o_drop_now_confirm', SUCCESS)],
+      [btn('❌ Cancel',             'owner',              DANGER)],
     ]};
   },
 
-  /* ── DM link button (channel posts) ────────────────────────────────────── */
   dmButton(botUsername) {
     if (!botUsername) return null;
     return { inline_keyboard: [[
@@ -158,7 +148,6 @@ const K = {
     ]]};
   },
 
-  /* ── Generic confirm / cancel pair ─────────────────────────────────────── */
   confirm(yes, no = 'main_menu') {
     return { inline_keyboard: [[
       btn('✅ Confirm', yes, SUCCESS),
@@ -166,10 +155,8 @@ const K = {
     ]]};
   },
 
-  /* ── Single back button ─────────────────────────────────────────────────── */
   back(to) { return { inline_keyboard: [[backBtn(to)]] }; },
 
-  /* ── Single main-menu button ────────────────────────────────────────────── */
   backMain() { return { inline_keyboard: [[mainMenuBtn()]] }; },
 };
 

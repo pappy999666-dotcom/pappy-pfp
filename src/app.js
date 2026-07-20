@@ -3,27 +3,35 @@ const http = require('http');
 const config = require('./config');
 const { Telegraf } = require('telegraf');
 const { connectDB } = require('./database/connect');
+const mongoose = require('mongoose');
 const logger = require('./utils/logger');
+const sm = require('./config/settingsManager');
+const ui = require('./utils/ui');
+const perfMonitor = require('./utils/performanceMonitor');
+const ows = require('./handlers/ownerSettingsHandler');
 
 // ── Global error guards ───────────────────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {
   logger.error('[UnhandledRejection] ' + (reason?.stack || reason?.message || String(reason)));
 });
 process.on('uncaughtException', (err) => {
-  logger.error('[UncaughtException] ' + (err.stack || err.message));
+  logger.error('[UncaughtException] ' + (err?.stack || err?.message || String(err)));
+});
+process.on('SIGPIPE', () => {
+  logger.warn('[SIGPIPE] Ignored broken pipe');
 });
 
 const { sessionMiddleware } = require('./middleware/session');
 const { rateLimitMiddleware } = require('./middleware/rateLimit');
-const { upsertUser } = require('./middleware/auth');
+const { upsertUser, isOwner } = require('./middleware/auth');
 const { start: startCmd } = require('./commands/start');
 const { route: cbRoute } = require('./handlers/callbackRouter');
 const { route: msgRoute } = require('./handlers/messageRouter');
 const { handleInlineQuery } = require('./inline/inlineHandler');
 const { startWorker, restoreJobs } = require('./schedulers/autoChange');
-const { startGroupPfpScheduler } = require('./schedulers/groupPfpScheduler');
-const { startWallpaperScheduler } = require('./schedulers/wallpaperScheduler');
-const { connectOwnerWA, setupGroupEventListeners } = require('./services/ownerWhatsapp');
+const { startGroupPfpScheduler, stopGroupPfpScheduler } = require('./schedulers/groupPfpScheduler');
+const { startWallpaperScheduler, stopWallpaperScheduler } = require('./schedulers/wallpaperScheduler');
+const { connectOwnerWA, setupGroupEventListeners, disconnectOwner } = require('./services/ownerWhatsapp');
 const { addAdminChannel, removeAdminChannel, addChat, removeChat } = require('./services/wallpaper');
 const { btn, PRIMARY, SUCCESS } = require('./utils/buttonStyles');
 
@@ -40,25 +48,37 @@ const server = http.createServer((req, res) => {
 const bot = new Telegraf(config.botToken);
 
 async function launch() {
-  // Start HTTP health server first so port opens immediately
+  // 1. Start HTTP health server immediately
   await new Promise(resolve => server.listen(PORT, () => {
     logger.info(`Health server on port ${PORT}`);
     resolve();
   }));
 
+  // 2. Connect DB
   await connectDB();
 
-  const { Settings } = require('./database/models');
-  const savedNum = await Settings.findOne({ key: 'ownerWaNumber' });
-  if (savedNum?.value && !config.ownerWaNumber) {
-    config.ownerWaNumber = savedNum.value;
-    logger.info(`Owner WA loaded: +${savedNum.value}`);
-  }
+  // 3. Initialize settings manager
+  await sm.getAll();
 
+  // 4. Register bot middleware
+  bot.use(upsertUser);
   bot.use(sessionMiddleware());
   bot.use(rateLimitMiddleware());
+  
+  bot.use(async (ctx, next) => {
+    // Skip maintenance check for owners
+    if (isOwner(ctx.from?.id)) return next();
+    const maint = await sm.get('maintenance.enabled');
+    if (maint) {
+      const msg = await sm.get('maintenance.message');
+      await ctx.reply(ui.warn('Maintenance Mode', msg || 'Back soon!'), { parse_mode: 'Markdown' });
+      return; // Don't call next()
+    }
+    return next();
+  });
 
-  bot.start(async ctx => { await upsertUser(ctx); await startCmd(ctx, bot); });
+  // 5. Register all commands and handlers
+  bot.start(async ctx => { await startCmd(ctx, bot); });
 
   bot.help(async ctx => {
     await ctx.reply(
@@ -73,7 +93,6 @@ async function launch() {
     );
   });
 
-  // /imagine — AI Image Generator shortcut
   bot.command('imagine', async ctx => {
     const prompt = ctx.message.text?.split(' ').slice(1).join(' ').trim();
     const { promptUser, handlePrompt } = require('./handlers/imageGenHandler');
@@ -84,7 +103,6 @@ async function launch() {
     return handlePrompt(ctx, bot);
   });
 
-  // /jid — list WA group/channel JIDs (owner only)
   const { jidCommand, jidUserCommand } = require('./commands/jid');
   bot.command('jid', ctx => jidCommand(ctx));
   bot.command('jiduser', ctx => jidUserCommand(ctx));
@@ -125,7 +143,6 @@ async function launch() {
   bot.on('inline_query', handleInlineQuery);
   bot.on('callback_query', ctx => cbRoute(ctx, bot));
 
-  // Track bot joining/leaving chats for auto-drop
   bot.on('my_chat_member', async ctx => {
     const update = ctx.myChatMember;
     if (!update) return;
@@ -155,13 +172,13 @@ async function launch() {
   });
 
   bot.on('message', async ctx => {
-    await upsertUser(ctx);
     if (ctx.chat?.type && ctx.chat.type !== 'private') addChat(ctx.chat.id);
     await msgRoute(ctx, bot);
   });
 
   bot.catch((err, ctx) => logger.error(`[${ctx?.updateType}] ${err.message}`));
 
+  // 6. Start schedulers
   try {
     await startWorker(bot);
     await restoreJobs(bot);
@@ -171,6 +188,16 @@ async function launch() {
 
   startGroupPfpScheduler(bot);
   startWallpaperScheduler(bot);
+
+  // Memory monitoring
+  perfMonitor.start(30 * 60 * 1000);
+
+  const { Settings } = require('./database/models');
+  const savedNum = await Settings.findOne({ key: 'ownerWaNumber' });
+  if (savedNum?.value && !config.ownerWaNumber) {
+    config.ownerWaNumber = savedNum.value;
+    logger.info(`Owner WA loaded: +${savedNum.value}`);
+  }
 
   if (config.ownerWaNumber) {
     try {
@@ -185,9 +212,10 @@ async function launch() {
     }
   }
 
+  // 7. Launch bot
   await bot.launch({ dropPendingUpdates: true });
 
-  // Fetch and store bot username so auto-drops can include a DM button
+  // 8. Fetch bot username
   try {
     const me = await bot.telegram.getMe();
     config.bot.username = me.username || '';
@@ -196,7 +224,7 @@ async function launch() {
     logger.warn('Could not fetch bot username: ' + e.message);
   }
 
-  // Register command suggestions — shows /cmd hints in groups & DMs
+  // 9. Register command hints
   const privateCommands = [
     { command: 'start',    description: '🏠 Open main menu' },
     { command: 'help',     description: '❓ Help & guide' },
@@ -217,11 +245,32 @@ async function launch() {
   ]);
   logger.info('Bot commands registered for private + group scopes');
 
-  logger.info(`✅ ${config.bot.name} v${config.bot.version} LIVE`);
-  logger.info(`Auto-drop: ${require('./services/wallpaper').CATEGORIES.length} categories × 10 imgs, 20min stagger, every 24h`);
+  // 10. Print clean startup banner
+  logger.info('╔══════════════════════════════╗');
+  logger.info('║    PAPPY PFP V3 — ONLINE     ║');
+  logger.info('║  Telegram + WhatsApp Premium ║');
+  logger.info('╚══════════════════════════════╝');
 
-  process.once('SIGINT', () => { bot.stop('SIGINT'); server.close(); });
-  process.once('SIGTERM', () => { bot.stop('SIGTERM'); server.close(); });
+  // Graceful shutdown
+  const shutdown = async (signal) => {
+    logger.info(`\n[${signal}] Shutting down gracefully...`);
+    try {
+      if (typeof stopWallpaperScheduler === 'function') stopWallpaperScheduler();
+      if (typeof stopGroupPfpScheduler === 'function') stopGroupPfpScheduler();
+    } catch(e) {}
+    try { bot.stop(signal); } catch(e) {}
+    try { server.close(); } catch(e) {}
+    try { await mongoose.connection.close(); } catch(e) {}
+    try {
+      if (typeof disconnectOwner === 'function') await disconnectOwner();
+    } catch(e) {}
+    try { perfMonitor.stop(); } catch(e) {}
+    logger.info('Shutdown complete.');
+    process.exit(0);
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 launch().catch(err => { logger.error('Launch failed: ' + err.message); process.exit(1); });

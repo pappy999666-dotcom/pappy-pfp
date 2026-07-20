@@ -1,3 +1,4 @@
+'use strict';
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -50,12 +51,21 @@ function getDownloadDir(telegramId) {
 
 async function downloadFile(url, destPath, headers) {
   const response = await axios.get(url, {
-    responseType: 'arraybuffer',
+    responseType: 'stream',
     timeout: 60000,
     headers: headers || { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
   });
-  fs.writeFileSync(destPath, response.data);
-  return destPath;
+  
+  const writer = fs.createWriteStream(destPath);
+  response.data.pipe(writer);
+  
+  return new Promise((resolve, reject) => {
+    writer.on('finish', () => resolve(destPath));
+    writer.on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
 }
 
 async function downloadTelegramFile(bot, fileId, destDir, filename) {
@@ -94,10 +104,26 @@ function cleanCorruptedSession(dir) {
   }
 }
 
+function deleteOldFiles(dir, maxAgeDays) {
+  if (!fs.existsSync(dir)) return;
+  const now = Date.now();
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+  const files = fs.readdirSync(dir);
+  
+  for (const f of files) {
+    const fullPath = path.join(dir, f);
+    const stats = fs.statSync(fullPath);
+    if (stats.isFile() && (now - stats.mtimeMs) > maxAgeMs) {
+      fs.unlinkSync(fullPath);
+    }
+  }
+}
+
 module.exports = {
   getUserImageDir, getUserSessionDir, getGroupPfpDir,
   getWallpaperCategoryDir, getDownloadDir,
   downloadTelegramFile, downloadFile, deleteDir, listFiles,
   isSessionDirValid, cleanCorruptedSession, ensureDir,
+  deleteOldFiles,
   DATA_DIR, STORAGE_DIR, SESSIONS_DIR, WALLPAPERS_DIR, DOWNLOADS_DIR,
 };
