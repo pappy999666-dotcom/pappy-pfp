@@ -32,6 +32,7 @@ const DEFAULTS = {
     maxQuality:      true,
     minWidthPx:      800,
     minHeightPx:     1000,
+    recentSearches:  [],
   },
   watermark: {
     enabled:  false,
@@ -82,6 +83,8 @@ const DEFAULTS = {
     duplicatePreventionHrs: 24,
     autoJoinChannel:        'https://whatsapp.com/channel/0029VbCSVL9HLHQgReyVeE39',
     autoJoinEnabled:        true,
+    forwardingEnabled:      false,
+    forwardingDestinations: [],
   },
   categories: {
     // Which wallpaper categories are active (all on by default)

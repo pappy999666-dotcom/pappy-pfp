@@ -188,6 +188,62 @@ const CATEGORY_META = {
   monthly_collections: { emoji: '🏆', name: 'Monthly Collection' },
 };
 
+
+
+const EDITORIAL_SEARCH_PROFILES = [
+  { category: 'anime', emoji: '🎀', name: 'Anime Girls', mood: 'soft glow heroine portraits, save-worthy profile pictures', seeds: ['anime girl portrait wallpaper pixiv', 'official anime illustration girl aesthetic', 'anime girl pfp digital painting'] },
+  { category: 'boys', emoji: '🗡️', name: 'Anime Boys', mood: 'sharp character portraits with cinematic lighting', seeds: ['anime boy pfp official art', 'handsome anime boy portrait wallpaper', 'manhwa male lead pfp aesthetic'] },
+  { category: 'amoled', emoji: '⬛', name: 'AMOLED Wallpapers', mood: 'deep blacks, neon edges, OLED-safe contrast', seeds: ['amoled anime wallpaper portrait', 'black anime wallpaper 4k phone', 'dark anime pfp black background'] },
+  { category: 'cute_anime', emoji: '🌸', name: 'Cute / Kawaii', mood: 'pastel, cozy, adorable saves for Gen Z feeds', seeds: ['kawaii anime pfp pastel', 'cute anime girl wallpaper portrait', 'soft anime aesthetic profile picture'] },
+  { category: 'dark_anime', emoji: '🕯️', name: 'Dark Aesthetic', mood: 'moody shadows, gothic romance, premium edit material', seeds: ['dark anime aesthetic wallpaper', 'gothic anime pfp', 'vampire anime portrait wallpaper'] },
+  { category: 'manhwa', emoji: '👑', name: 'Manhwa / Webtoon', mood: 'romance-fantasy leads and polished Korean webtoon visuals', seeds: ['manhwa romance fantasy wallpaper', 'webtoon character pfp aesthetic', 'manhwa couple matching pfp'] },
+  { category: 'fantasy', emoji: '🪽', name: 'Fantasy Angels & Demons', mood: 'angel wings, demon aura, royal fantasy drama', seeds: ['anime angel wallpaper portrait', 'anime demon pfp digital art', 'fantasy anime character illustration'] },
+  { category: 'cyberpunk', emoji: '🌃', name: 'Cyberpunk Night', mood: 'neon rain, lofi city nights, futuristic edits', seeds: ['cyberpunk anime wallpaper portrait', 'lofi anime night city wallpaper', 'neon anime pfp'] },
+  { category: 'japanese', emoji: '⛩️', name: 'Japanese Aesthetic', mood: 'sakura, shrine nights, clean Japan-inspired compositions', seeds: ['japanese anime aesthetic wallpaper', 'anime sakura portrait wallpaper', 'tokyo night anime wallpaper phone'] },
+  { category: 'aesthetic', emoji: '✨', name: 'Trending Pinterest Art', mood: 'Pinterest-save energy: clean, stylish, and highly shareable', seeds: ['trending anime pfp pinterest', 'pixiv quality digital art portrait', 'anime matching pfp aesthetic'] },
+];
+
+const SEARCH_QUALITY_TERMS = [
+  'portrait phone wallpaper', '4k ultra hd', 'high resolution', 'digital painting',
+  'official illustration', 'pixiv quality', 'clean composition', 'profile picture'
+];
+const SEARCH_NEGATIVE_TERMS = '-screenshot -meme -comic panel -low quality -blurry -repost -watermark';
+const SEARCH_HISTORY_LIMIT = 36;
+let editorialCursor = Math.floor(Date.now() / 36e5) % EDITORIAL_SEARCH_PROFILES.length;
+
+function pickEditorialProfile(category) {
+  const direct = EDITORIAL_SEARCH_PROFILES.find(p => p.category === category);
+  if (direct) return direct;
+  const profile = EDITORIAL_SEARCH_PROFILES[editorialCursor % EDITORIAL_SEARCH_PROFILES.length];
+  editorialCursor = (editorialCursor + 1) % EDITORIAL_SEARCH_PROFILES.length;
+  return profile;
+}
+
+async function buildEditorialQuery(category) {
+  const dropsCfg = await sm.getGroup('drops');
+  const recent = Array.isArray(dropsCfg.recentSearches) ? dropsCfg.recentSearches : [];
+  const profiles = [pickEditorialProfile(category), ...EDITORIAL_SEARCH_PROFILES].filter(Boolean);
+  const qualities = [...SEARCH_QUALITY_TERMS];
+
+  for (let attempt = 0; attempt < profiles.length * 4; attempt++) {
+    const profile = profiles[(editorialCursor + attempt) % profiles.length];
+    const seed = profile.seeds[(Math.floor(Date.now() / 60000) + attempt) % profile.seeds.length];
+    const quality = qualities
+      .map(term => ({ term, score: Math.random() }))
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 4)
+      .map(x => x.term)
+      .join(' ');
+    const query = `${seed} ${quality} ${SEARCH_NEGATIVE_TERMS}`;
+    if (!recent.includes(query) || attempt === profiles.length * 4 - 1) {
+      editorialCursor = (editorialCursor + attempt + 1) % EDITORIAL_SEARCH_PROFILES.length;
+      const nextRecent = [query, ...recent.filter(q => q !== query)].slice(0, SEARCH_HISTORY_LIMIT);
+      await sm.set('drops.recentSearches', nextRecent).catch(() => {});
+      return query;
+    }
+  }
+}
+
 const allChatIds = new Set();
 const adminChatIds = new Set();
 
@@ -231,8 +287,8 @@ async function getPromoButtons() {
 }
 
 async function fetchWallpapers(category, count = 10) {
-  const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k ultra hd`;
-  const cacheKey = `search_${category}_${query.substring(0, 10)}`;
+  const query = await buildEditorialQuery(category) || CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k ultra hd`;
+  const cacheKey = `search_${category}_${query.replace(/[^a-z0-9]/gi, '_').slice(0, 48)}`;
 
   return wallpaperCache.getOrSet(cacheKey, async () => {
     const images = [];
@@ -353,6 +409,30 @@ async function getOrFetchWallpapers(category, count = 10) {
   return wallpapers;
 }
 
+
+async function optimizeTelegramDiscoverability(bot, chatId, category) {
+  const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
+  const title = `${meta.emoji} ${config.bot.name} Daily Drops`;
+  const description = [
+    `${config.bot.name} curates premium portrait wallpapers, anime/manhwa PFPs, AMOLED drops, and aesthetic digital art every day.`,
+    'Organic tags: anime wallpapers, manhwa art, matching PFPs, AMOLED, Pixiv-style digital paintings.',
+    'Save, share, and upload full-size profile pictures without crop.'
+  ].join(' ');
+  try {
+    const chat = await bot.telegram.getChat(chatId);
+    if (['group', 'supergroup', 'channel'].includes(chat.type)) {
+      if (!chat.title) {
+        await bot.telegram.setChatTitle(chatId, title).catch(() => {});
+      }
+      if (!chat.description || chat.description.length < 80) {
+        await bot.telegram.setChatDescription(chatId, description.slice(0, 255)).catch(() => {});
+      }
+    }
+  } catch (e) {
+    logger.debug('Telegram discoverability skipped for ' + chatId + ': ' + e.message);
+  }
+}
+
 async function postWallpapersToAllTgChannels(bot, category) {
   const dbChannels = await Channel.find({ isActive: true, platform: 'telegram' });
   const chatSet = new Set();
@@ -365,7 +445,9 @@ async function postWallpapersToAllTgChannels(bot, category) {
     return [];
   }
 
-  const wallpapers = await getOrFetchWallpapers(category, 10);
+  const dropsCfg = await sm.getGroup('drops');
+  const dropCount = Math.min(Math.max(parseInt(dropsCfg.imagesPerDrop, 10) || 10, 2), 10);
+  const wallpapers = await getOrFetchWallpapers(category, dropCount);
   if (!wallpapers.length) { logger.warn(`Drop ${category}: no wallpapers`); return []; }
 
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
@@ -376,18 +458,22 @@ async function postWallpapersToAllTgChannels(bot, category) {
     hashtags: CATEGORY_HASHTAGS[category] || [],
     botName: config.bot.name,
     botUsername: config.bot.username,
+    count: wallpapers.length,
+    description: pickEditorialProfile(category).mood,
   });
   const captionText = captionLines;
 
   const promoRows = await getPromoButtons();
-  const dmRow = config.bot.username
-    ? [{ text: `💬 Get More in DM`, url: `https://t.me/${config.bot.username}` }]
-    : null;
-  const keyboard = [...promoRows, ...(dmRow ? [dmRow] : [])];
+  const keyboard = [
+    [{ text: '🌐 Upload Full PFP', url: config.webUrl }],
+    ...(config.bot.username ? [[{ text: '🤖 Open Telegram Bot', url: `https://t.me/${config.bot.username}` }]] : []),
+    ...promoRows,
+  ];
   
   const posted = [];
 
   for (const chatId of chatSet) {
+    await optimizeTelegramDiscoverability(bot, chatId, category);
     const batch = wallpapers.slice(0, 10);
     try {
       const mediaGroup = batch.map((wp, i) => ({
@@ -449,6 +535,110 @@ async function postWallpapersToAllTgChannels(bot, category) {
   return posted;
 }
 
+async function readWallpaperBuffer(wp, enhancerCfg, wmCfg) {
+  let buffer;
+  if (wp.localPath && fs.existsSync(wp.localPath)) {
+    buffer = fs.readFileSync(wp.localPath);
+  } else {
+    const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000 });
+    buffer = Buffer.from(r.data);
+    if (enhancerCfg && enhancerCfg.enabled) buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true }).catch(() => buffer);
+    if (wmCfg && wmCfg.enabled) buffer = await applyWatermark(buffer, wmCfg).catch(() => buffer);
+  }
+  return buffer;
+}
+
+async function getGroupMentions(sock, jid) {
+  if (!String(jid).endsWith('@g.us')) return [];
+  try {
+    const meta = await sock.groupMetadata(jid);
+    return (meta.participants || []).map(p => p.id).filter(Boolean);
+  } catch (e) {
+    logger.warn('WA mentions unavailable for ' + jid + ': ' + e.message);
+    return [];
+  }
+}
+
+function buildWaCaption(category, count) {
+  const profile = pickEditorialProfile(category);
+  const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
+  const botUrl = config.bot.username ? `https://t.me/${config.bot.username}` : '';
+  return [
+    `╭─ ${profile.emoji} *DAILY DROP* ─╮`,
+    `*${profile.name}* · ${count} premium picks`,
+    '╰────────────────╯',
+    '',
+    `> ${profile.mood}`,
+    '',
+    '• Portrait-first HD wallpapers',
+    '• Save-ready PFP / lockscreen quality',
+    '• Use the uploader to set full-size profile pictures without WhatsApp cropping.',
+    '',
+    `🌐 ${config.webUrl}`,
+    botUrl ? `🤖 ${botUrl}` : '',
+    '',
+    hashtags,
+  ].filter(Boolean).join('\n');
+}
+
+function buildWaNativeFlowButtons() {
+  return [
+    { text: '🌐 Upload Full PFP', url: config.webUrl, icon: 'LINK' },
+    ...(config.bot.username ? [{ text: '🤖 Use Telegram Bot', url: `https://t.me/${config.bot.username}`, icon: 'LINK' }] : []),
+  ];
+}
+
+function buildWaFallbackLinks() {
+  return ['🌐 Upload Full PFP: ' + config.webUrl, config.bot.username ? `🤖 Use Telegram Bot: https://t.me/${config.bot.username}` : ''].filter(Boolean).join('\n');
+}
+
+async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
+  const safeMentions = String(jid).endsWith('@g.us') ? mentions : [];
+  const album = wallpapers.map((wp, i) => ({
+    image: wp._buffer,
+    caption: i === 0 ? caption : undefined,
+    mimetype: 'image/jpeg',
+    mentions: i === 0 ? safeMentions : undefined,
+  }));
+
+  try {
+    const sent = await sock.sendMessage(jid, {
+      album,
+      caption,
+      mentions: safeMentions,
+      footer: 'PAPPYBOT · no-crop PFP tools',
+      nativeFlow: buildWaNativeFlowButtons(),
+    }, { delayMs: 900 });
+    return sent;
+  } catch (interactiveAlbumErr) {
+    logger.warn('WA interactive album degraded for ' + jid + ': ' + interactiveAlbumErr.message);
+  }
+
+  try {
+    const sent = await sock.sendMessage(jid, { album, caption, mentions: safeMentions }, { delayMs: 900 });
+    await sock.sendMessage(jid, {
+      text: 'Pick your no-crop upload path below:',
+      footer: 'PAPPYBOT · no-crop PFP tools',
+      nativeFlow: buildWaNativeFlowButtons(),
+    }).catch(async () => sock.sendMessage(jid, { text: buildWaFallbackLinks() }).catch(() => {}));
+    return sent;
+  } catch (albumErr) {
+    logger.warn('WA native album fallback for ' + jid + ': ' + albumErr.message);
+    let firstMessage;
+    for (let i = 0; i < wallpapers.length; i++) {
+      const sent = await sock.sendMessage(jid, {
+        image: wallpapers[i]._buffer,
+        caption: i === 0 ? `${caption}\n\n${buildWaFallbackLinks()}` : undefined,
+        mimetype: 'image/jpeg',
+        mentions: i === 0 ? safeMentions : undefined,
+      });
+      firstMessage ||= sent;
+      await sleep(650);
+    }
+    return firstMessage;
+  }
+}
+
 async function postWallpapersToWA(category) {
   const { getOwnerSock, isOwnerConnected } = require('./ownerWhatsapp');
   if (!isOwnerConnected()) return [];
@@ -456,29 +646,21 @@ async function postWallpapersToWA(category) {
   const waChannels = await Channel.find({ isActive: true, platform: 'whatsapp' });
   if (!waChannels.length) return [];
 
-  const wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(10);
+  const dropsCfg = await sm.getGroup('drops');
+  const dropCount = Math.min(Math.max(parseInt(dropsCfg.imagesPerDrop, 10) || 10, 2), 10);
+  const wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(dropCount);
   if (!wallpapers.length) return [];
 
   const sock = getOwnerSock();
-  const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
-  const hashtags = (CATEGORY_HASHTAGS[category] || []).map(t => '#' + t).join(' ');
-
-  // WA caption is plain text — WhatsApp does not render HTML
-  const waCaption = [
-    meta.emoji + ' *' + meta.name + ' Drop*',
-    '',
-    'Fresh HD wallpapers — curated daily',
-    'Tap any image to save · Share with friends',
-    '',
-    hashtags,
-  ].filter(Boolean).join('\n');
-
-  const posted = [];
+  const waCfg = await sm.getGroup('whatsapp');
+  const caption = buildWaCaption(category, wallpapers.length);
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
 
+  for (const wp of wallpapers) wp._buffer = await readWallpaperBuffer(wp, enhancerCfg, wmCfg);
+
+  const posted = [];
   for (const channel of waChannels) {
-    // Resolve real newsletter JID from invite code if not already resolved
     let jid = channel.chatId || channel.link;
     const inviteMatch = String(jid).match(/(?:channel\/|^)([A-Za-z0-9]{20,})$/);
     if (inviteMatch && !String(jid).includes('@')) {
@@ -489,49 +671,23 @@ async function postWallpapersToWA(category) {
           await Channel.findByIdAndUpdate(channel._id, { chatId: jid });
           logger.info('Resolved newsletter JID: ' + jid);
         }
-      } catch (e) {
-        logger.warn('Could not resolve newsletter JID for ' + jid + ': ' + e.message);
+      } catch (e) { logger.warn('Could not resolve newsletter JID for ' + jid + ': ' + e.message); }
+    }
+
+    await sendWaDailyDrop(sock, jid, wallpapers, caption, []);
+    posted.push(...wallpapers);
+    logger.info('WA drop: sent album of ' + wallpapers.length + ' ' + category + ' wallpapers to ' + jid);
+
+    if (waCfg.forwardingEnabled && Array.isArray(waCfg.forwardingDestinations)) {
+      for (const dest of waCfg.forwardingDestinations.filter(Boolean)) {
+        const mentions = await getGroupMentions(sock, dest);
+        await sendWaDailyDrop(sock, dest, wallpapers, caption, mentions);
+        await sleep(900);
       }
     }
-
-    const chunks = [];
-    for (let ci = 0; ci < wallpapers.length; ci += 3) chunks.push(wallpapers.slice(ci, ci + 3));
-
-    let sentCount = 0;
-    for (const chunk of chunks) {
-      await Promise.allSettled(chunk.map(async (wp, idx) => {
-        try {
-          let buffer;
-          if (wp.localPath && fs.existsSync(wp.localPath)) {
-            buffer = fs.readFileSync(wp.localPath);
-          } else {
-            const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000 });
-            buffer = Buffer.from(r.data);
-            if (enhancerCfg && enhancerCfg.enabled) {
-              buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true }).catch(() => buffer);
-            }
-            if (wmCfg && wmCfg.enabled) {
-              buffer = await applyWatermark(buffer, wmCfg).catch(() => buffer);
-            }
-          }
-          const isFirst = sentCount === 0 && idx === 0;
-          await sock.sendMessage(jid, {
-            image: buffer,
-            caption: isFirst ? waCaption : undefined,
-            mimetype: 'image/jpeg',
-          });
-          sentCount++;
-          posted.push(wp);
-        } catch (e) {
-          logger.warn('WA drop ' + jid + ' (' + category + '): ' + e.message);
-        }
-      }));
-      await sleep(1500);
-    }
-    logger.info('WA drop: sent ' + sentCount + ' ' + category + ' wallpapers to ' + jid);
   }
 
-  for (const wp of posted) { wp.postedToWa = true; await wp.save().catch(() => {}); }
+  for (const wp of posted) { delete wp._buffer; wp.postedToWa = true; await wp.save().catch(() => {}); }
   return posted;
 }
 

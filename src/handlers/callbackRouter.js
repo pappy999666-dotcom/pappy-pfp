@@ -266,6 +266,9 @@ async function route(ctx, bot) {
     if (data.startsWith('o_set_wa_tg:'))          return ows.waToggle(ctx, data.split(':')[1]);
     if (data.startsWith('o_set_wa_retries:'))     return ows.waSetRetries(ctx, data.split(':')[1]);
     if (data === 'o_set_wa_join_link')            return ows.waSetJoinLinkPrompt(ctx);
+    if (data === 'o_settings_wa_forward')         return ows.waForwardPanel(ctx);
+    if (data === 'o_wa_forward_add')              return ows.waForwardAddPrompt(ctx);
+    if (data.startsWith('o_wa_forward_remove:'))  return ows.waForwardRemove(ctx, data.split(':')[1]);
     if (data.startsWith('o_settings_cat_toggle:')) return ows.categoryToggle(ctx, data.split(':')[1]);
     if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
 

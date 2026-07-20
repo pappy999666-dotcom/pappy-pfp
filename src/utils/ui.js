@@ -191,13 +191,17 @@ function wallpaperCaption({ displayName, count, page, emoji, hashtags = [], botN
   return parts.join('\n');
 }
 
-function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '' }) {
+function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '' }) {
   const tags = hashtags.slice(0, 8).map(t => `#${t}`).join(' ');
+  const botLink = botUsername ? link(`@${botUsername}`, `https://t.me/${botUsername}`) : bold(botName);
   const parts = [
-    `${emoji} ${bold(displayName + ' Drop')}`,
-    `<blockquote>Fresh HD wallpapers — curated daily\nTap any image to save · Share with friends</blockquote>`,
+    `╭─── ${emoji} ${bold('DAILY DROP')} ───╮`,
+    `${bold(displayName)} · ${count} premium picks`,
+    `╰────────────────────╯`,
+    `<blockquote>${bold("Editor's moodboard")}\n${esc(description || 'Portrait-first HD wallpapers curated for saves, shares, profile pictures, and clean home screens.')}</blockquote>`,
+    `<blockquote expandable>${bold('Quality notes')}\n• Album-first delivery when Telegram supports it\n• Portrait / PFP friendly artwork\n• Low-noise, high-resolution aesthetic sources\n• Tap any image to save in full quality</blockquote>`,
+    `${italic('Powered by')} ${botLink}`,
   ];
-  if (botUsername) parts.push(link(`🤖 Open ${botName}`, `https://t.me/${botUsername}`));
   if (tags) parts.push(`<blockquote expandable>${esc(tags)}</blockquote>`);
   return parts.join('\n');
 }
