@@ -581,63 +581,43 @@ function buildWaCaption(category, count) {
   ].filter(Boolean).join('\n');
 }
 
-function buildWaNativeFlowButtons() {
-  return [
-    { text: '🌐 Upload Full PFP', url: config.webUrl, icon: 'LINK' },
-    ...(config.bot.username ? [{ text: '🤖 Use Telegram Bot', url: `https://t.me/${config.bot.username}`, icon: 'LINK' }] : []),
-  ];
-}
-
-function buildWaFallbackLinks() {
-  return ['🌐 Upload Full PFP: ' + config.webUrl, config.bot.username ? `🤖 Use Telegram Bot: https://t.me/${config.bot.username}` : ''].filter(Boolean).join('\n');
-}
-
 async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
+  // WA Channels do not support buttons/nativeFlow/footer — send clean album only
   const safeMentions = String(jid).endsWith('@g.us') ? mentions : [];
-  const album = wallpapers.map((wp, i) => ({
-    image: wp._buffer,
-    caption: i === 0 ? caption : undefined,
-    mimetype: 'image/jpeg',
-    mentions: i === 0 ? safeMentions : undefined,
-  }));
 
+  // Attempt 1: album message (Baileys album API)
   try {
-    const sent = await sock.sendMessage(jid, {
-      album,
-      caption,
-      mentions: safeMentions,
-      footer: 'PAPPYBOT · no-crop PFP tools',
-      nativeFlow: buildWaNativeFlowButtons(),
-    }, { delayMs: 900 });
-    return sent;
-  } catch (interactiveAlbumErr) {
-    logger.warn('WA interactive album degraded for ' + jid + ': ' + interactiveAlbumErr.message);
-  }
-
-  try {
+    const album = wallpapers.map((wp, i) => ({
+      image: wp._buffer,
+      caption: i === 0 ? caption : undefined,
+      mimetype: 'image/jpeg',
+      mentions: i === 0 ? safeMentions : undefined,
+    }));
     const sent = await sock.sendMessage(jid, { album, caption, mentions: safeMentions }, { delayMs: 900 });
-    await sock.sendMessage(jid, {
-      text: 'Pick your no-crop upload path below:',
-      footer: 'PAPPYBOT · no-crop PFP tools',
-      nativeFlow: buildWaNativeFlowButtons(),
-    }).catch(async () => sock.sendMessage(jid, { text: buildWaFallbackLinks() }).catch(() => {}));
     return sent;
   } catch (albumErr) {
-    logger.warn('WA native album fallback for ' + jid + ': ' + albumErr.message);
-    let firstMessage;
-    for (let i = 0; i < wallpapers.length; i++) {
+    logger.warn('WA album send failed for ' + jid + ': ' + albumErr.message);
+  }
+
+  // Attempt 2: individual images one by one
+  let firstMessage;
+  for (let i = 0; i < wallpapers.length; i++) {
+    try {
       const sent = await sock.sendMessage(jid, {
         image: wallpapers[i]._buffer,
-        caption: i === 0 ? `${caption}\n\n${buildWaFallbackLinks()}` : undefined,
+        caption: i === 0 ? caption : undefined,
         mimetype: 'image/jpeg',
         mentions: i === 0 ? safeMentions : undefined,
       });
       firstMessage ||= sent;
-      await sleep(650);
+    } catch (e) {
+      logger.warn('WA single image failed for ' + jid + ' img ' + i + ': ' + e.message);
     }
-    return firstMessage;
+    await sleep(650);
   }
+  return firstMessage;
 }
+
 
 async function postWallpapersToWA(category) {
   const { getOwnerSock, isOwnerConnected } = require('./ownerWhatsapp');

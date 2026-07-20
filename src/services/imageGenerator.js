@@ -69,7 +69,7 @@ async function generateImage(prompt, options = {}) {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://pappybot.app',
+            'HTTP-Referer': 'https://pappywapfpchanger.duckdns.org',
             'X-Title': 'PAPPYBOT',
           },
           timeout: 60000,
