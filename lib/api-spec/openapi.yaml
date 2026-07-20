@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Pappy PFP Web API — WhatsApp Profile Picture Changer
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: upload
+    description: Image upload operations
+  - name: sessions
+    description: WhatsApp session operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,205 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /pfp/upload:
+    post:
+      operationId: uploadImage
+      tags: [upload]
+      summary: Upload profile picture image
+      description: Upload an image file (multipart/form-data, field name "image") to be used as a WhatsApp profile picture
+      responses:
+        "200":
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageInfo"
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pfp/uploads/{uploadId}:
+    get:
+      operationId: getUpload
+      tags: [upload]
+      summary: Get upload info
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upload found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageInfo"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteUpload
+      tags: [upload]
+      summary: Delete uploaded image
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /pfp/sessions:
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a WhatsApp pairing session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pfp/sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session status
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete / logout a WhatsApp session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /pfp/sessions/{sessionId}/qr:
+    get:
+      operationId: getSessionQR
+      tags: [sessions]
+      summary: Get QR code for session pairing
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: QR code data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QRCodeData"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pfp/sessions/{sessionId}/apply:
+    post:
+      operationId: applyProfilePicture
+      tags: [sessions]
+      summary: Apply the uploaded image as WhatsApp profile picture
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile picture applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+        "400":
+          description: Session not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pfp/sessions/{sessionId}/status:
+    get:
+      operationId: getSessionStatus
+      tags: [sessions]
+      summary: Get live session status summary
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionStatusInfo"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +237,188 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    ImageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
+        orientation:
+          type: string
+          enum: [portrait, landscape, square]
+        qualityScore:
+          type: integer
+          description: 0-100 quality score
+        dataUrl:
+          type: string
+          description: Base64 data URL for preview
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - filename
+        - originalName
+        - mimeType
+        - fileSize
+        - width
+        - height
+        - orientation
+        - qualityScore
+        - dataUrl
+        - createdAt
+
+    SessionInput:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+          description: WhatsApp phone number with country code
+        countryCode:
+          type: string
+        pairingMethod:
+          type: string
+          enum: [qr, code]
+        sessionType:
+          type: string
+          enum: [temporary, permanent]
+        uploadId:
+          type: ["string", "null"]
+      required:
+        - phoneNumber
+        - countryCode
+        - pairingMethod
+        - sessionType
+
+    WhatsAppSession:
+      type: object
+      properties:
+        id:
+          type: string
+        phoneNumber:
+          type: string
+        countryCode:
+          type: string
+        pairingMethod:
+          type: string
+          enum: [qr, code]
+        sessionType:
+          type: string
+          enum: [temporary, permanent]
+        status:
+          type: string
+          enum:
+            - pending
+            - connecting
+            - awaiting_scan
+            - awaiting_code_entry
+            - paired
+            - uploading
+            - applying
+            - completed
+            - failed
+            - logged_out
+        pairingCode:
+          type: ["string", "null"]
+        uploadId:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - phoneNumber
+        - countryCode
+        - pairingMethod
+        - sessionType
+        - status
+        - createdAt
+        - updatedAt
+
+    QRCodeData:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        qrDataUrl:
+          type: string
+          description: QR code as base64 data URL (PNG)
+        expiresAt:
+          type: string
+          format: date-time
+        refreshCount:
+          type: integer
+      required:
+        - sessionId
+        - qrDataUrl
+        - expiresAt
+        - refreshCount
+
+    SessionStatusInfo:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        status:
+          type: string
+        step:
+          type: integer
+          description: Current step 1-6
+        stepLabel:
+          type: string
+        progress:
+          type: integer
+          description: 0-100 progress percentage
+        message:
+          type: string
+        isComplete:
+          type: boolean
+        isFailed:
+          type: boolean
+      required:
+        - sessionId
+        - status
+        - step
+        - stepLabel
+        - progress
+        - message
+        - isComplete
+        - isFailed

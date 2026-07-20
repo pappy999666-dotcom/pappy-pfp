@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Pappy PFP Web"
+version = "1.0.0"
+id = "artifacts/pappy-pfp"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23690
+
+[services.development]
+run = "pnpm --filter @workspace/pappy-pfp run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pappy-pfp", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/pappy-pfp/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23690"
+BASE_PATH = "/"
