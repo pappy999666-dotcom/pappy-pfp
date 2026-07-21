@@ -1,3 +1,5 @@
+'use strict';
+const axios = require('axios');
 const { searchImages } = require('../services/pinterest');
 const K = require('./keyboards');
 const config = require('../config');
@@ -5,17 +7,26 @@ const ui = require('../utils/ui');
 const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
+const PIN_HDR = {
+  Referer: 'https://www.pinterest.com/',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+};
+
+async function fetchBuffer(url) {
+  const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000, headers: PIN_HDR });
+  return Buffer.from(r.data);
+}
+
 async function start(ctx) {
   try {
     ctx.setState({ step: 'pi_query' });
     const text = [
-      ui.screenHeader(config.bot.name, 'Image Search'),
+      ui.screenHeader(config.bot.name, 'Pinterest Search'),
       '',
-      '<blockquote>Send a keyword to search for HD images (up to 20 per page).</blockquote>',
+      '<blockquote>Send any keyword to search Pinterest images.</blockquote>',
       '',
-      ui.italic('Examples: `sukuna`, `anime girl`, `nature 4k`')
+      ui.italic('Examples: Sukuna, Camaro, dark anime pfp, aesthetic wallpaper'),
     ].join('\n');
-    
     await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') })
       .catch(() => ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('main_menu') }));
   } catch (err) {
@@ -32,61 +43,78 @@ async function search(ctx, query, page = 0) {
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
 
     if (!imgs.length) {
-      return ctx.reply(ui.info('No Results', `No images found for <b>${ui.esc(query)}</b>.`), {
+      return ctx.reply(ui.info('No Results', `Nothing found for <b>${ui.esc(query)}</b>. Try a different keyword.`), {
         parse_mode: 'HTML', reply_markup: K.backMain(),
       });
     }
 
-    // Download images with Pinterest referer so Telegram can receive them
-    const axios = require('axios');
-    const PIN_HEADERS = { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
-
-    async function fetchBuffer(url) {
-      const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000, headers: PIN_HEADERS });
-      return Buffer.from(r.data);
-    }
-
-    const batch1 = imgs.slice(0, 10);
-    const batch2 = imgs.slice(10, 20);
+    const caption = `୨ৎ ── ✦ <b>${ui.esc(query)}</b> ✦ ── ୨ৎ\n♡ ${imgs.length} results · Page ${page + 1}`;
     let sent = 0;
+    let captionUsed = false;
 
-    // Send first batch
-    const buffers1 = await Promise.all(batch1.map(img => fetchBuffer(img.url).catch(() => null)));
-    const valid1 = buffers1.map((buf, i) => ({ buf, img: batch1[i] })).filter(x => x.buf);
-    if (valid1.length) {
-      try {
-        const media1 = valid1.map(({ buf }, i) => ({
-          type: 'photo',
-          media: { source: buf },
-          ...(i === 0 ? { caption: `২ৎ ── ✶ <b>${ui.esc(query)}</b> ✶ ── ২ৎ\n♥ ˚₊‧ ${imgs.length} results · Page ${page + 1}`, parse_mode: 'HTML' } : {}),
-        }));
-        await ctx.replyWithMediaGroup(media1);
-        sent += valid1.length;
-      } catch (e) {
-        // fallback: send one by one
-        for (const { buf, img } of valid1) {
-          await ctx.replyWithPhoto({ source: buf }).catch(() => {});
-          sent++;
+    // Process in batches of 10
+    for (let b = 0; b < imgs.length; b += 10) {
+      const batch = imgs.slice(b, b + 10);
+
+      // Try to download each image as buffer (needed for Pinterest CDN)
+      const results = await Promise.all(
+        batch.map(img => fetchBuffer(img.url).then(buf => ({ buf, url: img.url })).catch(() => ({ buf: null, url: img.url })))
+      );
+
+      const withBuf = results.filter(r => r.buf);
+      const withUrl = results.filter(r => !r.buf);
+
+      // Send buffered images
+      if (withBuf.length) {
+        try {
+          const media = withBuf.map(({ buf }, i) => ({
+            type: 'photo',
+            media: { source: buf },
+            ...(!captionUsed && i === 0 ? { caption, parse_mode: 'HTML' } : {}),
+          }));
+          if (media.length === 1) {
+            await ctx.replyWithPhoto(media[0].media, { caption: !captionUsed ? caption : undefined, parse_mode: 'HTML' });
+          } else {
+            await ctx.replyWithMediaGroup(media);
+          }
+          sent += withBuf.length;
+          captionUsed = true;
+        } catch {
+          for (const { buf } of withBuf) {
+            await ctx.replyWithPhoto({ source: buf }, { caption: !captionUsed ? caption : undefined, parse_mode: 'HTML' }).catch(() => {});
+            sent++;
+            captionUsed = true;
+          }
         }
       }
-    }
 
-    // Send second batch
-    if (batch2.length) {
-      const buffers2 = await Promise.all(batch2.map(img => fetchBuffer(img.url).catch(() => null)));
-      const valid2 = buffers2.map((buf, i) => ({ buf, img: batch2[i] })).filter(x => x.buf);
-      if (valid2.length) {
+      // Send URL-only images directly (DDG results don't need referer)
+      if (withUrl.length) {
         try {
-          await ctx.replyWithMediaGroup(valid2.map(({ buf }) => ({ type: 'photo', media: { source: buf } })));
-          sent += valid2.length;
-        } catch (e) {
-          for (const { buf } of valid2) { await ctx.replyWithPhoto({ source: buf }).catch(() => {}); sent++; }
+          const media = withUrl.map(({ url }, i) => ({
+            type: 'photo',
+            media: url,
+            ...(!captionUsed && i === 0 ? { caption, parse_mode: 'HTML' } : {}),
+          }));
+          if (media.length === 1) {
+            await ctx.replyWithPhoto(media[0].media, { caption: !captionUsed ? caption : undefined, parse_mode: 'HTML' });
+          } else {
+            await ctx.replyWithMediaGroup(media);
+          }
+          sent += withUrl.length;
+          captionUsed = true;
+        } catch {
+          for (const { url } of withUrl) {
+            await ctx.replyWithPhoto(url, { caption: !captionUsed ? caption : undefined, parse_mode: 'HTML' }).catch(() => {});
+            sent++;
+            captionUsed = true;
+          }
         }
       }
     }
 
     if (!sent) {
-      return ctx.reply(ui.info('No Results', `Could not load images for <b>${ui.esc(query)}</b>. Try a different keyword.`), {
+      return ctx.reply(ui.info('No Results', `Could not load images for <b>${ui.esc(query)}</b>. Try again.`), {
         parse_mode: 'HTML', reply_markup: K.backMain(),
       });
     }

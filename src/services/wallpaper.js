@@ -779,10 +779,17 @@ async function buildWaCaption(category, count) {
 }
 
 async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
-  // WA Channels do not support buttons/nativeFlow/footer — send clean album only
   const safeMentions = String(jid).endsWith('@g.us') ? mentions : [];
 
-  // Attempt 1: album message (Baileys album API)
+  // Wait for connection if closed
+  const { isOwnerConnected } = require('./ownerWhatsapp');
+  if (!isOwnerConnected()) {
+    logger.warn('WA send: not connected, waiting 15s...');
+    await sleep(15000);
+    if (!isOwnerConnected()) { logger.warn('WA send: still not connected, skipping'); return null; }
+  }
+
+  // Attempt 1: album
   try {
     const album = wallpapers.map((wp, i) => ({
       image: wp._buffer,
@@ -796,9 +803,14 @@ async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
     logger.warn('WA album send failed for ' + jid + ': ' + albumErr.message);
   }
 
-  // Attempt 2: individual images one by one
+  // Attempt 2: individual with reconnect retry
   let firstMessage;
   for (let i = 0; i < wallpapers.length; i++) {
+    // Check connection before each image
+    if (!isOwnerConnected()) {
+      await sleep(8000);
+      if (!isOwnerConnected()) { logger.warn('WA disconnected mid-send, stopping at img ' + i); break; }
+    }
     try {
       const sent = await sock.sendMessage(jid, {
         image: wallpapers[i]._buffer,
@@ -809,6 +821,17 @@ async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
       firstMessage ||= sent;
     } catch (e) {
       logger.warn('WA single image failed for ' + jid + ' img ' + i + ': ' + e.message);
+      if (e.message?.includes('Connection Closed') || e.message?.includes('Connection Terminated')) {
+        await sleep(5000); // brief wait then retry once
+        try {
+          const sent = await sock.sendMessage(jid, {
+            image: wallpapers[i]._buffer,
+            caption: i === 0 ? caption : undefined,
+            mimetype: 'image/jpeg',
+          });
+          firstMessage ||= sent;
+        } catch { /* skip this image */ }
+      }
     }
     await sleep(650);
   }

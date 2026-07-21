@@ -42,9 +42,12 @@ async function searchImages(query, page = 0, count = 20) {
   }
 
   // 2. prexzy Pinterest search — strip 'dump', try progressively shorter queries
+  // For page > 0, rotate seed to get different results
   const cleanQuery = query.replace(/\bdump\b/gi, '').replace(/\s+/g, ' ').trim();
   const words = cleanQuery.split(' ').filter(Boolean);
-  const queries = [
+
+  // Build query variants — rotate on page to get fresh results
+  const baseVariants = [
     cleanQuery,
     words.slice(0, 4).join(' '),
     words.slice(0, 3).join(' '),
@@ -52,15 +55,28 @@ async function searchImages(query, page = 0, count = 20) {
     words[0],
   ].filter((q, i, arr) => q && arr.indexOf(q) === i);
 
+  // On page > 0, try appended terms to get different results from prexzy
+  const pageVariants = page > 0 ? [
+    `${cleanQuery} aesthetic`,
+    `${cleanQuery} hd`,
+    `${cleanQuery} wallpaper`,
+    `${words[0]} pfp`,
+    `${words[0]} art`,
+  ] : [];
+
+  const queries = page > 0 ? [...pageVariants, ...baseVariants] : baseVariants;
+
   for (const q of queries) {
     try {
       const r = await axios.get(PREXZY, { params: { q }, timeout: 12000 });
       if (r.data?.status === false) continue;
       const urls = r.data?.data || [];
-      logger.info(`Pinterest (prexzy) "${q}": ${urls.length} images`);
+      logger.info(`Pinterest (prexzy) "${q}" page=${page}: ${urls.length} images`);
       if (urls.length > 0) {
-        const start = page * count;
-        return urls.slice(start, start + count).map(url => ({ url, source: 'pinterest' }));
+        // Offset into results based on page, wrap around if needed
+        const start = (page * count) % urls.length;
+        const slice = [...urls.slice(start), ...urls.slice(0, start)].slice(0, count);
+        return slice.map(url => ({ url, source: 'pinterest' }));
       }
     } catch (e) {
       logger.warn(`Pinterest prexzy "${q}" failed: ${e.message}`);
