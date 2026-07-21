@@ -203,6 +203,26 @@ async function launch() {
   bot.on('message', async ctx => {
     if (ctx.chat?.type && ctx.chat.type !== 'private') addChat(ctx.chat.id);
     await msgRoute(ctx, bot);
+
+    // AI chatbot fallback for unhandled private text messages
+    if (
+      ctx.chat?.type === 'private' &&
+      ctx.message?.text &&
+      !ctx.message.text.startsWith('/') &&
+      !ctx.userState?.step
+    ) {
+      try {
+        const axios = require('axios');
+        const r = await axios.get('https://prexzyapis.com/ai/chatbot', {
+          params: { text: ctx.message.text },
+          timeout: 10000,
+        });
+        const reply = r.data?.data?.response || r.data?.response || r.data?.message || r.data?.answer || '';
+        if (reply) await ctx.reply(reply).catch(() => {});
+      } catch (e) {
+        // silent fail — don't spam errors for chat
+      }
+    }
   });
 
   bot.catch((err, ctx) => logger.error(`[${ctx?.updateType}] ${err.message}`));

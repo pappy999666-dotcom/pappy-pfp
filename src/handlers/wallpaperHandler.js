@@ -40,7 +40,7 @@ async function browseCategory(ctx, category) {
     
     msg = await ctx.reply(ui.loading(`Loading ${displayName} wallpapers...`), { parse_mode: 'HTML' });
 
-    const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k`;
+    const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} pfp aesthetic`;
     const images = await searchImages(query, 0, 10);
 
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
@@ -51,37 +51,35 @@ async function browseCategory(ctx, category) {
       });
     }
 
-    const caption = ui.wallpaperCaption({
-      category,
-      displayName,
-      count: images.length,
-      page: 1,
-      emoji,
-      hashtags: [category.replace(/_/g, ''), 'wallpapers', 'hdwallpaper', 'phonewallpaper'],
-      botName: config.bot.name
-    });
+    const axios = require('axios');
+    const PIN_HDR = { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' };
+    const buffers = await Promise.all(images.slice(0, 10).map(img =>
+      axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000, headers: PIN_HDR })
+        .then(r => Buffer.from(r.data)).catch(() => null)
+    ));
+    const valid = buffers.map((buf, i) => ({ buf, img: images[i] })).filter(x => x.buf);
 
-    const media = images.slice(0, 10).map((img, i) => ({
+    if (!valid.length) {
+      return ctx.reply(ui.info('No Wallpapers Found', 'Could not load images. Try again.'), {
+        parse_mode: 'HTML', reply_markup: K.back('wallpapers'),
+      });
+    }
+
+    const caption = `২ৎ ── ✶ ${displayName.toUpperCase()} ✶ ── ২ৎ\n♥ ˚₊‧ ${valid.length} HD Wallpapers`;
+    const media = valid.map(({ buf }, i) => ({
       type: 'photo',
-      media: img.url,
+      media: { source: buf },
       ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
     }));
 
-    try {
-      await ctx.replyWithMediaGroup(media);
-    } catch {
-      for (const img of images.slice(0, 5)) {
-        await ctx.replyWithPhoto(img.url, { caption: img.title }).catch(() => {});
-      }
-    }
+    await ctx.replyWithMediaGroup(media);
 
-    const bottomText = `> Showing ${Math.min(images.length, 10)} ${displayName} wallpapers`;
-    await ctx.reply(bottomText, {
+    await ctx.reply(`📌 ${valid.length} ${displayName} wallpapers`, {
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
-        [btn('➕ Load More',          `wp_more:${category}:1`, SUCCESS)],
-        [btn('‹ Back to Categories',  'wallpapers',            PRIMARY)],
-        [btn('🏠 Main Menu',          'main_menu',             PRIMARY)],
+        [btn('➕ Load More', `wp_more:${category}:1`, SUCCESS)],
+        [btn('‹ Back to Categories', 'wallpapers', PRIMARY)],
+        [btn('🏠 Main Menu', 'main_menu', PRIMARY)],
       ]},
     });
   } catch (err) {
@@ -94,9 +92,8 @@ async function loadMore(ctx, category, page) {
   try {
     await ctx.answerCbQuery('Loading...').catch(() => {});
     const displayName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const emoji = CAT_EMOJIS[category] || '🖼️';
 
-    const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k`;
+    const query = CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} pfp aesthetic`;
     const images = await searchImages(query, page, 10);
 
     if (!images.length) {
@@ -105,37 +102,34 @@ async function loadMore(ctx, category, page) {
       });
     }
 
-    const caption = ui.wallpaperCaption({
-      category,
-      displayName,
-      count: images.length,
-      page: page + 1,
-      emoji,
-      hashtags: [category.replace(/_/g, ''), 'wallpapers', 'hdwallpaper', 'phonewallpaper'],
-      botName: config.bot.name
-    });
+    const axios = require('axios');
+    const PIN_HDR = { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' };
+    const buffers = await Promise.all(images.slice(0, 10).map(img =>
+      axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000, headers: PIN_HDR })
+        .then(r => Buffer.from(r.data)).catch(() => null)
+    ));
+    const valid = buffers.map((buf, i) => ({ buf, img: images[i] })).filter(x => x.buf);
 
-    const media = images.slice(0, 10).map((img, i) => ({
-      type: 'photo',
-      media: img.url,
-      ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
-    }));
-
-    try {
-      await ctx.replyWithMediaGroup(media);
-    } catch {
-      for (const img of images.slice(0, 5)) {
-        await ctx.replyWithPhoto(img.url, { caption: img.title }).catch(() => {});
-      }
+    if (!valid.length) {
+      return ctx.reply(ui.info('End of Gallery', 'Could not load more images.'), {
+        parse_mode: 'HTML', reply_markup: K.back('wallpapers'),
+      });
     }
 
-    const bottomText = `> Page ${page + 1} - ${Math.min(images.length, 10)} wallpapers`;
-    await ctx.reply(bottomText, {
+    const media = valid.map(({ buf }, i) => ({
+      type: 'photo',
+      media: { source: buf },
+      ...(i === 0 ? { caption: `২ৎ Page ${page + 1} · ${displayName}`, parse_mode: 'HTML' } : {}),
+    }));
+
+    await ctx.replyWithMediaGroup(media);
+
+    await ctx.reply(`📌 Page ${page + 1} · ${valid.length} wallpapers`, {
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [
-        [btn('➕ Load More',         `wp_more:${category}:${page + 1}`, SUCCESS)],
-        [btn('‹ Back to Categories', 'wallpapers',                       PRIMARY)],
-        [btn('🏠 Main Menu',         'main_menu',                        PRIMARY)],
+        [btn('➕ Load More', `wp_more:${category}:${page + 1}`, SUCCESS)],
+        [btn('‹ Back to Categories', 'wallpapers', PRIMARY)],
+        [btn('🏠 Main Menu', 'main_menu', PRIMARY)],
       ]},
     });
   } catch (err) {

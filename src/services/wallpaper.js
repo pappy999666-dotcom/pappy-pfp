@@ -516,8 +516,14 @@ async function downloadAndStoreWallpapers(category, count = 10) {
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
 
+  // Get already-used URLs for this category to avoid duplicates
+  const usedUrls = new Set(
+    (await Wallpaper.find({ category }, 'url').lean()).map(w => w.url)
+  );
+
   for (const img of images) {
     if (stored.length >= count) break;
+    if (usedUrls.has(img.url)) continue; // skip duplicate
 
     const existing = await Wallpaper.findOne({ url: img.url });
     if (existing) {
@@ -614,7 +620,7 @@ async function postWallpapersToAllTgChannels(bot, category) {
   if (!wallpapers.length) { logger.warn(`Drop ${category}: no wallpapers`); return []; }
 
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
-  const captionLines = ui.dropCaption({
+  const captionText = ui.dropCaption({
     category,
     displayName: meta.name,
     emoji: meta.emoji,
@@ -623,8 +629,8 @@ async function postWallpapersToAllTgChannels(bot, category) {
     botUsername: config.bot.username,
     count: wallpapers.length,
     description: pickEditorialProfile(category).mood,
+    webUrl: config.webUrl,
   });
-  const captionText = captionLines;
 
   const promoRows = await getPromoButtons();
   const keyboard = [

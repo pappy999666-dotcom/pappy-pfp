@@ -8,11 +8,21 @@ const PREXZY = 'https://prexzyapis.com/search/pinterest';
 async function searchImages(query, page = 0, count = 20) {
   // Clean query — prexzy fails on long queries with 'dump'
   const cleanQuery = query.replace(/\bdump\b/gi, '').replace(/\s+/g, ' ').trim();
+  // Also try progressively shorter versions
+  const words = cleanQuery.split(' ').filter(Boolean);
+  const queries = [
+    cleanQuery,
+    words.slice(0, 4).join(' '),
+    words.slice(0, 3).join(' '),
+    words.slice(0, 2).join(' '),
+    words[0],
+  ].filter((q, i, arr) => q && arr.indexOf(q) === i); // unique, non-empty
 
   // Primary: prexzyapis Pinterest search
-  for (const q of [cleanQuery, cleanQuery.split(' ').slice(0, 4).join(' ')]) {
+  for (const q of queries) {
     try {
       const r = await axios.get(PREXZY, { params: { q }, timeout: 12000 });
+      if (r.data?.status === false) continue; // empty result, try shorter
       const urls = r.data?.data || [];
       logger.info(`Pinterest (prexzy) "${q}": ${urls.length} images`);
       if (urls.length > 0) {

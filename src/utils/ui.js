@@ -191,21 +191,24 @@ function wallpaperCaption({ displayName, count, page, emoji, hashtags = [], botN
   return parts.join('\n');
 }
 
-function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '' }) {
-  const tags = hashtags.slice(0, 8).map(t => `#${t}`).join(' ');
-  const botLink = botUsername ? link(`@${botUsername}`, `https://t.me/${botUsername}`) : bold(botName);
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const parts = [
-    `${emoji} ${bold(`${displayName.toUpperCase()} DROP`)} ${emoji}`,
-    `<blockquote>${bold('✦ ' + count + ' HD WALLPAPERS')} · ${dateStr}\n${esc(description || 'Portrait-first HD wallpapers curated for saves, shares &amp; profile pictures.')}</blockquote>`,
-    `🔥 ${bold('Save your faves')} · 📲 ${bold('Set as wallpaper')} · 🔁 ${bold('Share')}`,
+function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '', webUrl = '' }) {
+  const tags = hashtags.slice(0, 6).map(t => `#${t}`).join(' ');
+  const url = webUrl || (botUsername ? `https://t.me/${botUsername}` : '');
+  return [
+    `২ৎ ── ✶ ${displayName.toUpperCase()} DROP ✶ ── ২ৎ`,
+    `♥ ˚₊‧ ${bold(String(count) + ' HD Wallpapers')}`,
+    `২ৎ ${italic(description || 'Aesthetic & Pinterest-worthy PFPs.')}`,
     ``,
-    `<blockquote expandable>📌 ${bold('How to use')}\n• Tap any image → Save in full quality\n• Portrait &amp; PFP-friendly artwork\n• High-res, low-noise aesthetic sources\n• Upload full-size PFP without crop → ${botUsername ? `t.me/${botUsername}` : botName}</blockquote>`,
-    `${italic('Powered by')} ${botLink}`,
-  ];
-  if (tags) parts.push(`<blockquote expandable>${esc(tags)}</blockquote>`);
-  return parts.join('\n');
+    `🎀₊˚✧ ${italic('Save your faves, use them as your')}`,
+    `${italic('wallpaper or profile picture.')}`,
+    ``,
+    url ? `♥╭─ 🌐 ${italic('Full-Size WhatsApp PFP')} ─╮
+│ ${italic('No crop • HD • One Tap')}
+│ ${url}
+╰────────────────────╯` : '',
+    ``,
+    tags ? `<blockquote expandable>${esc(tags)}</blockquote>` : '',
+  ].filter(Boolean).join('\n');
 }
 
 // ── Welcome ───────────────────────────────────────────────────────────────────
