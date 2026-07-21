@@ -744,22 +744,21 @@ async function fetchWyrQuestion() {
 async function buildWaCaption(category, count) {
   const profile = pickEditorialProfile(category);
   const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
-  const botUrl = config.bot.username ? `https://t.me/${config.bot.username}` : '';
   const wyr = await fetchWyrQuestion();
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   return [
-    `${profile.emoji} *${profile.name.toUpperCase()} DROP* ${profile.emoji}`,
-    `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌`,
-    `✦ *${count} HD Wallpapers* · ${dateStr}`,
-    `_${profile.mood}_`,
+    `২ৎ ── ✶ 𝓐𝓪𝓜𝓜𝓮 𝒺𝓲𝓻𝓵𝓼 𝓓𝓷𝓸𝓹 ✶ ── ২ৎ`,
+    `♥ ˚₊‧ 𝟭𝟬 ℍ𝟗 ᵔᴰᴸᴸᴰᴰᴰᴰᴰᴰ`,
+    `২ৎ 𝓪𝓮𝓼𝓽𝓱𝓮𝓽𝓲𝓬 & 𝓟𝓲𝓪𝓽𝓮𝓻𝓮𝓼𝓽-𝓼𝓸𝓻𝓽𝓱𝓶 𝓟𝓟𝓟𝓼.`,
     ``,
-    wyr ? `🎲 *Would You Rather?*\n${wyr}` : '',
+    wyr ? `🎲 *WYR:* ${wyr}` : '',
     ``,
-    `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌`,
-    `🔥 *Save your faves* · set as wallpaper or PFP`,
-    `📲 Upload full-size without crop → ${config.webUrl}`,
-    botUrl ? `🤖 More drops on Telegram → ${botUrl}` : '',
+    `🎀₊˚✧ 𝓪𝓮𝓳𝓮 𝓶𝓸𝓹𝓻 𝓯𝓮𝓳𝓮𝓼,𝓹𝓼𝓮 𝓽𝓱𝓮𝓺 𝓮𝓼 𝓶𝓸𝓹𝓻`,
+    `𝓼𝓮𝓵𝓵𝓹𝓮𝓹𝓮𝓻 𝓸𝓻 𝓹𝓻𝓸𝓯𝓲𝓵𝓮 𝓹𝓲𝓬𝓽𝓹𝓻𝓮.`,
+    ``,
+    `♥╭─ 🌐 𝒭𝓹𝓵𝓵-𝓪𝓲𝓿𝓮 𝓜𝓱𝓮𝓽𝓼𝓐𝓹𝓹 𝓟𝒭𝓟 ─╮`,
+    `│ 𝒵𝓸 𝓬𝓻𝓸𝓹 • 𝒯𝓍 • 𝓞𝓷𝓮 𝒯𝓮𝓹`,
+    `│ ${config.webUrl}`,
+    `╰────────────────────╯`,
     ``,
     hashtags,
   ].filter(Boolean).join('\n');

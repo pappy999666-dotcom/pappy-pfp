@@ -118,6 +118,32 @@ async function launch() {
   bot.command('listcats', ctx => listCatsCommand(ctx));
   bot.command('suggestions', ctx => viewSuggestionsCommand(ctx));
 
+  // /setpinterest <token> — owner sets Pinterest API token live
+  bot.command('setpinterest', async ctx => {
+    if (!config.ownerIds.includes(String(ctx.from?.id))) return;
+    const token = ctx.message?.text?.split(' ').slice(1).join(' ').trim();
+    if (!token) {
+      const current = config.apis.pinterestToken ? '✅ Token set' : '❌ Not set';
+      return ctx.reply(
+        `📌 <b>Pinterest API Token</b>\n\n<blockquote>Status: ${current}\n\nUsage: /setpinterest YOUR_TOKEN\n\nGet token at: developers.pinterest.com</blockquote>`,
+        { parse_mode: 'HTML' }
+      );
+    }
+    config.apis.pinterestToken = token;
+    // Persist to .env
+    const fs = require('fs');
+    try {
+      let env = fs.readFileSync('/root/pappy-pfp/src/.env', 'utf8');
+      if (env.includes('PINTEREST_ACCESS_TOKEN=')) {
+        env = env.replace(/PINTEREST_ACCESS_TOKEN=.*/g, `PINTEREST_ACCESS_TOKEN=${token}`);
+      } else {
+        env += `\nPINTEREST_ACCESS_TOKEN=${token}`;
+      }
+      fs.writeFileSync('/root/pappy-pfp/src/.env', env);
+    } catch (e) { /* non-fatal */ }
+    await ctx.reply(`✅ <b>Pinterest API Token Set!</b>\n\n<blockquote>Token saved. Pinterest official API is now active.\nRestart not needed — takes effect immediately.</blockquote>`, { parse_mode: 'HTML' });
+  });
+
   bot.command('wadrop', async ctx => {
     if (!config.ownerIds.includes(String(ctx.from?.id))) return;
     const { isOwnerConnected } = require('./services/ownerWhatsapp');

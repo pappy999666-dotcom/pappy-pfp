@@ -29,6 +29,7 @@ async function settingsMenu(ctx) {
     ui.stat('🔬', 'Image Enhancer', enhancer.enabled ? '✅ Active' : '⛔ Off'),
     ui.stat('🔧', 'Maintenance',    maint.enabled ? '🔴 ACTIVE' : '🟢 Normal'),
     ui.stat('💬', 'WA Channel',     wa.channelEnabled ? '✅ Active' : '⛔ Off'),
+    ui.stat('📌', 'Pinterest API',  config.apis?.pinterestToken ? '✅ Token set' : '⚠️ Using prexzy fallback'),
   ].join('\n');
 
   const btns = [

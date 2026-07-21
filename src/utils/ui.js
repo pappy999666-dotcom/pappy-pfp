@@ -88,36 +88,36 @@ function loading(action = 'Processing') {
 
 function success(title, detail = '', extra = '') {
   const parts = [`✅ ${bold(title)}`];
-  if (detail) parts.push(`\n<blockquote>${esc(detail)}</blockquote>`);
+  if (detail) parts.push(`\n<blockquote>${detail}</blockquote>`);
   if (extra)  parts.push(`\n${extra}`);
   return parts.join('');
 }
 
 function warn(title, detail = '') {
   const parts = [`⚠️ ${bold(title)}`];
-  if (detail) parts.push(`\n<blockquote>${esc(detail)}</blockquote>`);
+  if (detail) parts.push(`\n<blockquote>${detail}</blockquote>`);
   return parts.join('');
 }
 
 function info(title, detail = '') {
   const parts = [`ℹ️ ${bold(title)}`];
-  if (detail) parts.push(`\n<blockquote>${esc(detail)}</blockquote>`);
+  if (detail) parts.push(`\n<blockquote>${detail}</blockquote>`);
   return parts.join('');
 }
 
 function error(title, message = '', fix = '', errorId = '') {
   const parts = [
     `❌ ${bold(title)}`,
-    `\n<blockquote>${esc(message || 'Something went wrong.')}</blockquote>`,
+    `\n<blockquote>${message || 'Something went wrong.'}</blockquote>`,
   ];
-  if (fix) parts.push(`\n\n💡 ${bold('Try this:')}\n<blockquote>${esc(fix)}</blockquote>`);
+  if (fix) parts.push(`\n\n💡 ${bold('Try this:')}\n<blockquote>${fix}</blockquote>`);
   if (errorId) parts.push(`\n\n${code(`Error: ${errorId}`)}`);
   return parts.join('');
 }
 
 function confirm(title, detail = '', warning = '') {
   const parts = [`⚠️ ${bold(title)}`];
-  if (detail)  parts.push(`\n<blockquote>${esc(detail)}</blockquote>`);
+  if (detail)  parts.push(`\n<blockquote>${detail}</blockquote>`);
   if (warning) parts.push(`\n\n🔴 ${bold(warning)}`);
   parts.push(`\n\n${italic('Are you sure?')}`);
   return parts.join('');
@@ -193,20 +193,14 @@ function wallpaperCaption({ displayName, count, page, emoji, hashtags = [], botN
 
 function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '', webUrl = '' }) {
   const tags = hashtags.slice(0, 6).map(t => `#${t}`).join(' ');
-  const url = webUrl || (botUsername ? `https://t.me/${botUsername}` : '');
+  const botLink = botUsername ? link(`@${botUsername}`, `https://t.me/${botUsername}`) : bold(botName);
+  const url = webUrl || '';
   return [
-    `২ৎ ── ✶ ${displayName.toUpperCase()} DROP ✶ ── ২ৎ`,
-    `♥ ˚₊‧ ${bold(String(count) + ' HD Wallpapers')}`,
-    `২ৎ ${italic(description || 'Aesthetic & Pinterest-worthy PFPs.')}`,
-    ``,
-    `🎀₊˚✧ ${italic('Save your faves, use them as your')}`,
-    `${italic('wallpaper or profile picture.')}`,
-    ``,
-    url ? `♥╭─ 🌐 ${italic('Full-Size WhatsApp PFP')} ─╮
-│ ${italic('No crop • HD • One Tap')}
-│ ${url}
-╰────────────────────╯` : '',
-    ``,
+    `${emoji} ${bold(displayName.toUpperCase() + ' DROP')} ${emoji}`,
+    `<blockquote>${bold('✦ ' + count + ' HD Wallpapers')}\n${esc(description || 'Aesthetic & Pinterest-worthy PFPs.')}</blockquote>`,
+    `🔥 ${bold('Save your faves')} · 📲 ${bold('Set as wallpaper or PFP')}`,
+    url ? `\n🌐 ${bold('Upload Full-Size WhatsApp PFP')}\n<blockquote>No crop • HD • One Tap\n${url}</blockquote>` : '',
+    `${italic('Powered by')} ${botLink}`,
     tags ? `<blockquote expandable>${esc(tags)}</blockquote>` : '',
   ].filter(Boolean).join('\n');
 }

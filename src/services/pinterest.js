@@ -4,11 +4,44 @@ const config = require('../config');
 const logger = require('../utils/logger');
 
 const PREXZY = 'https://prexzyapis.com/search/pinterest';
+const PIN_API = 'https://api.pinterest.com/v5';
+
+// Official Pinterest API — used when token is set
+async function searchPinterestAPI(query, count = 20) {
+  const token = config.apis.pinterestToken;
+  if (!token) return null;
+  try {
+    const r = await axios.get(`${PIN_API}/pins`, {
+      params: { query, page_size: Math.min(count, 25), media_type: 'image' },
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 12000,
+    });
+    const items = r.data?.items || [];
+    logger.info(`Pinterest API (official) "${query}": ${items.length} pins`);
+    return items
+      .map(pin => ({
+        url: pin.media?.images?.['1200x']?.url || pin.media?.images?.original?.url || pin.media?.images?.['600x']?.url,
+        source: 'pinterest_api',
+        title: pin.title || query,
+      }))
+      .filter(p => p.url);
+  } catch (e) {
+    logger.warn(`Pinterest official API failed: ${e.response?.status} ${e.message}`);
+    return null;
+  }
+}
 
 async function searchImages(query, page = 0, count = 20) {
-  // Clean query — prexzy fails on long queries with 'dump'
+  // 1. Official Pinterest API (best quality, when token set)
+  if (config.apis.pinterestToken) {
+    const results = await searchPinterestAPI(query, count);
+    if (results && results.length > 0) {
+      return results.slice(page * count, page * count + count);
+    }
+  }
+
+  // 2. prexzy Pinterest search — strip 'dump', try progressively shorter queries
   const cleanQuery = query.replace(/\bdump\b/gi, '').replace(/\s+/g, ' ').trim();
-  // Also try progressively shorter versions
   const words = cleanQuery.split(' ').filter(Boolean);
   const queries = [
     cleanQuery,
@@ -16,13 +49,12 @@ async function searchImages(query, page = 0, count = 20) {
     words.slice(0, 3).join(' '),
     words.slice(0, 2).join(' '),
     words[0],
-  ].filter((q, i, arr) => q && arr.indexOf(q) === i); // unique, non-empty
+  ].filter((q, i, arr) => q && arr.indexOf(q) === i);
 
-  // Primary: prexzyapis Pinterest search
   for (const q of queries) {
     try {
       const r = await axios.get(PREXZY, { params: { q }, timeout: 12000 });
-      if (r.data?.status === false) continue; // empty result, try shorter
+      if (r.data?.status === false) continue;
       const urls = r.data?.data || [];
       logger.info(`Pinterest (prexzy) "${q}": ${urls.length} images`);
       if (urls.length > 0) {
@@ -34,7 +66,11 @@ async function searchImages(query, page = 0, count = 20) {
     }
   }
 
-  // Fallback: DuckDuckGo
+  // 3. DuckDuckGo fallback
+  return searchDDG(query, page, count);
+}
+
+async function searchDDG(query, page = 0, count = 20) {
   try {
     const r1 = await axios.get('https://duckduckgo.com/', {
       params: { q: query, iax: 'images', ia: 'images' },

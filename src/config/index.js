@@ -26,6 +26,7 @@ const config = {
     unsplashKey: process.env.UNSPLASH_ACCESS_KEY || '',
     pexelsKey: process.env.PEXELS_API_KEY || '',
     openrouterKey: process.env.OPENROUTER_API_KEY || '',
+    pinterestToken: process.env.PINTEREST_ACCESS_TOKEN || '',
   },
 
   bot: {
