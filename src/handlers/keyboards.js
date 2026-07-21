@@ -115,7 +115,8 @@ const K = {
 
   ownerPanel() {
     return { inline_keyboard: [
-      [btn('🚀 Drop Wallpapers NOW',  'o_drop_now',  SUCCESS)],
+      [btn('🚀 Drop Wallpapers NOW',  'o_drop_now',    SUCCESS)],
+      [btn('📱 WA Drop NOW',           'o_wa_drop_now', SUCCESS)],
       [btn('📣 Broadcast Message',    'o_broadcast', SUCCESS)],
       [btn('📊 Statistics',           'o_stats',     PRIMARY),
        btn('👥 Users',                'o_users',     PRIMARY)],

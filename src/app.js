@@ -118,6 +118,8 @@ async function launch() {
   bot.command('listcats', ctx => listCatsCommand(ctx));
   bot.command('suggestions', ctx => viewSuggestionsCommand(ctx));
 
+  bot.command('wadrop', ctx => ow.waDrop(ctx, bot));
+
   bot.command('setname', async ctx => {
     const name = ctx.message.text?.split(' ').slice(1).join(' ').trim();
     const { Session } = require('./database/models');

@@ -194,12 +194,14 @@ function wallpaperCaption({ displayName, count, page, emoji, hashtags = [], botN
 function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '' }) {
   const tags = hashtags.slice(0, 8).map(t => `#${t}`).join(' ');
   const botLink = botUsername ? link(`@${botUsername}`, `https://t.me/${botUsername}`) : bold(botName);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const parts = [
-    `╭─── ${emoji} ${bold('DAILY DROP')} ───╮`,
-    `${bold(displayName)} · ${count} premium picks`,
-    `╰────────────────────╯`,
-    `<blockquote>${bold("Editor's moodboard")}\n${esc(description || 'Portrait-first HD wallpapers curated for saves, shares, profile pictures, and clean home screens.')}</blockquote>`,
-    `<blockquote expandable>${bold('Quality notes')}\n• Album-first delivery when Telegram supports it\n• Portrait / PFP friendly artwork\n• Low-noise, high-resolution aesthetic sources\n• Tap any image to save in full quality</blockquote>`,
+    `${emoji} ${bold(`${displayName.toUpperCase()} DROP`)} ${emoji}`,
+    `<blockquote>${bold('✦ ' + count + ' HD WALLPAPERS')} · ${dateStr}\n${esc(description || 'Portrait-first HD wallpapers curated for saves, shares &amp; profile pictures.')}</blockquote>`,
+    `🔥 ${bold('Save your faves')} · 📲 ${bold('Set as wallpaper')} · 🔁 ${bold('Share')}`,
+    ``,
+    `<blockquote expandable>📌 ${bold('How to use')}\n• Tap any image → Save in full quality\n• Portrait &amp; PFP-friendly artwork\n• High-res, low-noise aesthetic sources\n• Upload full-size PFP without crop → ${botUsername ? `t.me/${botUsername}` : botName}</blockquote>`,
     `${italic('Powered by')} ${botLink}`,
   ];
   if (tags) parts.push(`<blockquote expandable>${esc(tags)}</blockquote>`);

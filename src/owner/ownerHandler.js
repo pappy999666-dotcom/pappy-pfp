@@ -524,6 +524,28 @@ async function promoEditUrl(ctx) {
   await ctx.reply(ui.success('Button Updated', `*${link.label}*`), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('‹ Back to Promo', 'o_promo', PRIMARY)]] } });
 }
 
+async function waDrop(ctx, bot) {
+  if (!config.ownerIds.includes(String(ctx.from?.id))) return;
+  const { isOwnerConnected } = require('../services/ownerWhatsapp');
+  if (!isOwnerConnected()) {
+    return ctx.reply(ui.error('WA Not Connected', 'Pair Owner WA first via Owner Panel.'), { parse_mode: 'HTML' });
+  }
+  const { postWallpapersToWA } = require('../services/wallpaper');
+  const category = ctx.callbackQuery ? ctx.callbackQuery.data.split(':')[1] : (ctx.message?.text?.split(' ')[1] || 'anime');
+  const wait = await ctx.reply(ui.loading(`Sending WA drop: <b>${category}</b>...`), { parse_mode: 'HTML' });
+  try {
+    const result = await postWallpapersToWA(category);
+    await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
+      ui.success('WA Drop Sent', `Category: <b>${category}</b>\nPosted: <b>${result.length}</b> wallpapers to channel + forwarded to groups.`),
+      { parse_mode: 'HTML' }
+    ).catch(() => {});
+  } catch (e) {
+    await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
+      ui.error('WA Drop Failed', e.message), { parse_mode: 'HTML' }
+    ).catch(() => {});
+  }
+}
+
 async function settingsPanel(ctx) {
   return ownerSettingsHandler.settingsMenu(ctx);
 }
@@ -536,5 +558,5 @@ module.exports = {
   ownerWaPair, ownerWaPairCode, ownerWaPairQR, restart,
   promoPanel, promoAddPrompt, promoAddLabel, promoAddUrl,
   promoToggle, promoDel, promoEditPrompt, promoEditLabel, promoEditUrl,
-  settingsPanel,
+  settingsPanel, waDrop,
 };

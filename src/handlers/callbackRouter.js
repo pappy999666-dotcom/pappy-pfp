@@ -134,6 +134,7 @@ async function route(ctx, bot) {
       return ctx.answerCbQuery('Owner only.', { show_alert: true }).catch(() => {});
 
     if (data === 'owner') return ow.panel(ctx);
+    if (data === 'o_wa_drop_now') return ow.waDrop(ctx, bot);
     if (data === 'o_stats') return ow.stats(ctx);
     if (data === 'o_users') return ow.users(ctx);
     if (data === 'o_broadcast') return ow.broadcastPrompt(ctx);

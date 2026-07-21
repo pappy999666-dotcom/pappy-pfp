@@ -787,22 +787,21 @@ async function buildWaCaption(category, count) {
   const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
   const botUrl = config.bot.username ? `https://t.me/${config.bot.username}` : '';
   const wyr = await fetchWyrQuestion();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   return [
-    `╭─ ${profile.emoji} *DAILY DROP* ─╮`,
-    `*${profile.name}* · ${count} premium picks`,
-    '╰────────────────╯',
-    '',
-    `> ${profile.mood}`,
-    '',
-    wyr ? `🎲 *WYR:* ${wyr}` : '',
-    '',
-    '• Portrait-first HD wallpapers',
-    '• Save-ready PFP / lockscreen quality',
-    '• Use the uploader to set full-size profile pictures without WhatsApp cropping.',
-    '',
-    `🌐 ${config.webUrl}`,
-    botUrl ? `🤖 ${botUrl}` : '',
-    '',
+    `${profile.emoji} *${profile.name.toUpperCase()} DROP* ${profile.emoji}`,
+    `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌`,
+    `✦ *${count} HD Wallpapers* · ${dateStr}`,
+    `_${profile.mood}_`,
+    ``,
+    wyr ? `🎲 *Would You Rather?*\n${wyr}` : '',
+    ``,
+    `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌`,
+    `🔥 *Save your faves* · set as wallpaper or PFP`,
+    `📲 Upload full-size without crop → ${config.webUrl}`,
+    botUrl ? `🤖 More drops on Telegram → ${botUrl}` : '',
+    ``,
     hashtags,
   ].filter(Boolean).join('\n');
 }
@@ -859,7 +858,8 @@ async function postWallpapersToWA(category) {
 
   const sock = getOwnerSock();
   const waCfg = await sm.getGroup('whatsapp');
-  const caption = buildWaCaption(category, wallpapers.length);
+  const profile = pickEditorialProfile(category);
+  const caption = await buildWaCaption(category, wallpapers.length);
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
 
@@ -902,7 +902,17 @@ async function postWallpapersToWA(category) {
         }
 
         const mentions = await getGroupMentions(sock, dest);
-        const groupCaption = caption + `\n\n${channelBtnText}\n${channelUrl}`;
+        const groupCaption = [
+          `${profile.emoji} *${profile.name.toUpperCase()} DROP* ${profile.emoji}`,
+          `✦ *${wallpapers.length} HD Wallpapers* · Fresh today`,
+          `_${profile.mood}_`,
+          ``,
+          `🔥 Save your faves · set as wallpaper or PFP`,
+          mentions.length ? `👀 ${mentions.slice(0, 5).map(m => '@' + m.split('@')[0]).join(' ')} check these out!` : '',
+          ``,
+          `${channelBtnText}`,
+          `${channelUrl}`,
+        ].filter(Boolean).join('\n');
         await sendWaDailyDrop(sock, dest, wallpapers, groupCaption, mentions);
 
         // Update last sent timestamp
