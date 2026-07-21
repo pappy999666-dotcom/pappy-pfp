@@ -134,14 +134,6 @@ async function route(ctx, bot) {
       return ctx.answerCbQuery('Owner only.', { show_alert: true }).catch(() => {});
 
     if (data === 'owner') return ow.panel(ctx);
-    if (data === 'o_settings') {
-      const text = [
-        ui.screenHeader('Owner Panel', 'Settings & Advanced'),
-        '',
-        '<blockquote>System and WhatsApp connection settings.</blockquote>'
-      ].join('\n');
-      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.ownerSettingsMenu() }).catch(() => {});
-    }
     if (data === 'o_stats') return ow.stats(ctx);
     if (data === 'o_users') return ow.users(ctx);
     if (data === 'o_broadcast') return ow.broadcastPrompt(ctx);
