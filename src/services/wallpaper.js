@@ -743,12 +743,11 @@ async function getGroupMentions(sock, jid) {
 async function fetchWyrQuestion() {
   try {
     const r = await axios.get('https://prexzyapis.com/ai/chatbot', {
-      params: { text: 'Give me one short fun "Would You Rather" question about anime, aesthetics, or wallpapers. Just the question, no explanation.' },
-      timeout: 6000,
+      params: { text: 'Give me one fun Would You Rather question about anime, aesthetics, or wallpapers. Format exactly like: Would you rather [A] or [B]? React [emoji1] for [A] | [emoji2] for [B]. One line only, nothing else.' },
+      timeout: 8000,
     });
-    const answer = r.data?.data?.response || r.data?.response || r.data?.message || r.data?.answer || '';
-    // Strip markdown bold (**text**) for clean WA display
-    return answer.replace(/\*\*([^*]+)\*\*/g, '$1').trim().slice(0, 200) || null;
+    const answer = r.data?.data?.response || r.data?.response || '';
+    return answer.replace(/\*\*([^*]+)\*\*/g, '$1').trim().slice(0, 250) || null;
   } catch (e) {
     return null;
   }
@@ -764,7 +763,6 @@ async function buildWaCaption(category, count) {
     `♥ *${countWord} HD Wallpapers*`,
     `${profile.mood}.`,
     ``,
-    wyr ? `🎲 *WYR:* ${wyr}` : '',
     `🎀⋆ Save your favorites and use them as your wallpaper or WhatsApp PFP.`,
     ``,
     `╭─ 🌐 *Full-Size WhatsApp PFP* ─╮`,
@@ -775,6 +773,8 @@ async function buildWaCaption(category, count) {
     `╰────────────────────╯`,
     ``,
     hashtags,
+    ``,
+    wyr ? `🎲 *WYR:* ${wyr}` : '',
   ].filter(Boolean).join('\n');
 }
 
