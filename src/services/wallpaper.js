@@ -376,6 +376,18 @@ let editorialCursor = Math.floor(Date.now() / 36e5) % EDITORIAL_SEARCH_PROFILES.
 function pickEditorialProfile(category) {
   const direct = EDITORIAL_SEARCH_PROFILES.find(p => p.category === category);
   if (direct) return direct;
+  // Build a profile from CATEGORY_META so the name is always correct
+  const meta = CATEGORY_META[category];
+  if (meta) {
+    return {
+      category,
+      emoji: meta.emoji,
+      name: meta.name,
+      mood: `Premium ${meta.name} wallpapers & PFPs, curated for saves and shares.`,
+      seeds: [CATEGORY_QUERIES[category] || `${category.replace(/_/g,' ')} pfp aesthetic`],
+    };
+  }
+  // Last resort: rotate through profiles
   const profile = EDITORIAL_SEARCH_PROFILES[editorialCursor % EDITORIAL_SEARCH_PROFILES.length];
   editorialCursor = (editorialCursor + 1) % EDITORIAL_SEARCH_PROFILES.length;
   return profile;
