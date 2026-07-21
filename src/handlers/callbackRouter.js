@@ -261,6 +261,9 @@ async function route(ctx, bot) {
     if (data === 'o_settings_wa_forward')         return ows.waForwardPanel(ctx);
     if (data === 'o_wa_forward_add')              return ows.waForwardAddPrompt(ctx);
     if (data.startsWith('o_wa_forward_remove:'))  return ows.waForwardRemove(ctx, data.split(':')[1]);
+    if (data === 'o_wa_fwd_times')                return ows.waForwardTimesPrompt(ctx);
+    if (data === 'o_wa_fwd_btn_text')             return ows.waForwardBtnTextPrompt(ctx);
+    if (data === 'o_wa_fwd_btn_url')              return ows.waForwardBtnUrlPrompt(ctx);
     if (data.startsWith('o_set_cat:'))              return ows.categoryToggle(ctx, data.split(':')[1]);
     if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
     if (data === 'o_addcat_prompt')               return ows.addCatPrompt(ctx);

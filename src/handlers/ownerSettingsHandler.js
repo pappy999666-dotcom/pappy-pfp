@@ -459,25 +459,35 @@ async function waToggle(ctx, field) {
 async function waForwardPanel(ctx) {
   const w = await settingsManager.getGroup('whatsapp');
   const destinations = w.forwardingDestinations || [];
+  const timesPerDay = w.forwardTimesPerDay || 1;
+  const btnText = w.forwardButtonText || '📢 Join Our WA Channel';
+  const btnUrl = w.forwardButtonUrl || '';
   const text = [
     ui.screenHeader(config.bot.name, 'Daily Drop Forwarding'),
     '',
     ui.blockquote([
       `Forwarding: [${w.forwardingEnabled ? '✅ Enabled' : '⛔ Disabled'}]`,
+      `Times per day: [${timesPerDay}x]`,
+      `Button text: [${btnText}]`,
+      `Button URL: [${btnUrl || 'Not set'}]`,
       `Destinations: [${destinations.length}]`,
-      'Posts the same Daily Drop album to selected WhatsApp groups after channel publishing.',
-      'Group mentions are attempted when Baileys group metadata is available.'
+      'Sends the Daily Drop album to each group with @mentions + a channel link button.',
     ]),
     '',
-    destinations.length ? '<blockquote expandable>' + destinations.map((jid, i) => `${i + 1}. ${ui.esc(jid)}`).join('\n') + '</blockquote>' : '<blockquote>No forwarding groups configured.</blockquote>'
+    destinations.length
+      ? '<blockquote expandable>' + destinations.map((jid, i) => `${i + 1}. ${ui.esc(jid)}`).join('\n') + '</blockquote>'
+      : '<blockquote>No forwarding groups configured.</blockquote>',
   ].join('\n');
   const btns = [
     [btn(w.forwardingEnabled ? '⛔ Disable Forwarding' : '✅ Enable Forwarding', 'o_set_wa_tg:forwardingEnabled', w.forwardingEnabled ? DANGER : SUCCESS)],
+    [btn('🔢 Set Times Per Day', 'o_wa_fwd_times', PRIMARY)],
+    [btn('✏️ Set Button Text', 'o_wa_fwd_btn_text', PRIMARY)],
+    [btn('🔗 Set Button URL', 'o_wa_fwd_btn_url', PRIMARY)],
     [btn('➕ Add Destination Group', 'o_wa_forward_add', SUCCESS)],
-    ...destinations.map((jid, i) => [btn(`🗑 Remove ${i + 1}`, `o_wa_forward_remove:${i}`, DANGER)]),
-    [{ text: '‹ Back to WA Channel', callback_data: 'o_settings_wa' }]
+    ...destinations.map((jid, i) => [btn(`🗑 Remove ${i + 1}: ${jid.slice(0, 20)}...`, `o_wa_forward_remove:${i}`, DANGER)]),
+    [{ text: '‹ Back to WA Channel', callback_data: 'o_settings_wa' }],
   ];
-  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
 }
 async function waForwardAddPrompt(ctx) {
   ctx.setState({ step: 'o_settings_wa_forward_add' });
@@ -506,6 +516,48 @@ async function waForwardRemove(ctx, index) {
   return waForwardPanel(ctx);
 }
 
+async function waForwardTimesPrompt(ctx) {
+  const w = await settingsManager.getGroup('whatsapp');
+  ctx.setState({ step: 'o_settings_wa_fwd_times' });
+  await ctx.editMessageText(
+    `<b>Set Forward Times Per Day</b>\n\nCurrent: ${w.forwardTimesPerDay || 1}x per day\n\nSend a number (1–24):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_forward' }]] } }
+  ).catch(() => {});
+}
+async function waForwardTimesInput(ctx) {
+  clearState(ctx.from.id);
+  const val = Math.min(24, Math.max(1, parseInt(ctx.message.text) || 1));
+  await settingsManager.set('whatsapp.forwardTimesPerDay', val);
+  await ctx.reply(`✅ Forward set to ${val}x per day`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_forward' }]] } });
+}
+async function waForwardBtnTextPrompt(ctx) {
+  const w = await settingsManager.getGroup('whatsapp');
+  ctx.setState({ step: 'o_settings_wa_fwd_btn_text' });
+  await ctx.editMessageText(
+    `<b>Set Forward Button Text</b>\n\nCurrent: ${w.forwardButtonText || '📢 Join Our WA Channel'}\n\nSend new button text (max 30 chars):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_forward' }]] } }
+  ).catch(() => {});
+}
+async function waForwardBtnTextInput(ctx) {
+  clearState(ctx.from.id);
+  const val = ctx.message.text?.trim().slice(0, 30);
+  await settingsManager.set('whatsapp.forwardButtonText', val);
+  await ctx.reply(`✅ Button text set to: ${val}`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_forward' }]] } });
+}
+async function waForwardBtnUrlPrompt(ctx) {
+  const w = await settingsManager.getGroup('whatsapp');
+  ctx.setState({ step: 'o_settings_wa_fwd_btn_url' });
+  await ctx.editMessageText(
+    `<b>Set Forward Button URL</b>\n\nCurrent: ${w.forwardButtonUrl || 'Not set'}\n\nSend the URL (e.g. your WA channel link or Telegram link):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_forward' }]] } }
+  ).catch(() => {});
+}
+async function waForwardBtnUrlInput(ctx) {
+  clearState(ctx.from.id);
+  const val = ctx.message.text?.trim();
+  await settingsManager.set('whatsapp.forwardButtonUrl', val);
+  await ctx.reply(`✅ Button URL set to: ${val}`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_forward' }]] } });
+}
 async function waSetRetries(ctx, field) {
   const w = await settingsManager.getGroup('whatsapp');
   ctx.setState({ step: 'o_settings_set_wa', waField: field });
@@ -648,8 +700,11 @@ async function handleInput(ctx, _bot) {
   if (step === 'o_settings_set_sch_days')    return schedulerDaysInput(ctx);
   if (step === 'o_settings_set_wa')          return waRetriesInput(ctx);
   if (step === 'o_settings_set_wa_join_link') return waSetJoinLinkInput(ctx);
-  if (step === 'o_settings_wa_forward_add') return waForwardAddInput(ctx);
-  if (step === 'o_settings_addcat') return addCatInput(ctx);
+  if (step === 'o_settings_wa_forward_add')    return waForwardAddInput(ctx);
+  if (step === 'o_settings_wa_fwd_times')       return waForwardTimesInput(ctx);
+  if (step === 'o_settings_wa_fwd_btn_text')    return waForwardBtnTextInput(ctx);
+  if (step === 'o_settings_wa_fwd_btn_url')     return waForwardBtnUrlInput(ctx);
+  if (step === 'o_settings_addcat')             return addCatInput(ctx);
 }
 
 module.exports = {
@@ -663,7 +718,9 @@ module.exports = {
   uploadsPanel, uploadsSet, uploadsInput,
   cooldownsPanel, cooldownsSet, cooldownsInput,
   schedulerPanel, schedulerToggle, schedulerSetDays, schedulerDaysInput,
-  waPanel, waToggle, waAutoToggle, waForwardPanel, waForwardAddPrompt, waForwardAddInput, waForwardRemove, waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
+  waPanel, waToggle, waAutoToggle, waForwardPanel, waForwardAddPrompt, waForwardAddInput, waForwardRemove,
+  waForwardTimesPrompt, waForwardTimesInput, waForwardBtnTextPrompt, waForwardBtnTextInput, waForwardBtnUrlPrompt, waForwardBtnUrlInput,
+  waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
   handleInput,
   categoriesPanel, categoryToggle,
   addCatPrompt, addCatInput, viewSuggestions,

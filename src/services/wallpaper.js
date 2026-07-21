@@ -885,9 +885,29 @@ async function postWallpapersToWA(category) {
     logger.info('WA drop: sent album of ' + wallpapers.length + ' ' + category + ' wallpapers to ' + jid);
 
     if (waCfg.forwardingEnabled && Array.isArray(waCfg.forwardingDestinations)) {
+      const timesPerDay = Math.max(1, parseInt(waCfg.forwardTimesPerDay, 10) || 1);
+      const cooldownMs = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
+      const now = Date.now();
+      const lastSent = waCfg.forwardLastSent || {};
+
+      // Build button to attach to group forwards
+      const channelUrl = waCfg.forwardButtonUrl || config.webUrl;
+      const channelBtnText = waCfg.forwardButtonText || '📢 Join Our WA Channel';
+
       for (const dest of waCfg.forwardingDestinations.filter(Boolean)) {
+        const lastTs = lastSent[dest] || 0;
+        if (now - lastTs < cooldownMs) {
+          logger.info(`WA forward skip ${dest}: cooldown (${Math.round((cooldownMs - (now - lastTs)) / 60000)}m left)`);
+          continue;
+        }
+
         const mentions = await getGroupMentions(sock, dest);
-        await sendWaDailyDrop(sock, dest, wallpapers, caption, mentions);
+        const groupCaption = caption + `\n\n${channelBtnText}\n${channelUrl}`;
+        await sendWaDailyDrop(sock, dest, wallpapers, groupCaption, mentions);
+
+        // Update last sent timestamp
+        lastSent[dest] = now;
+        await sm.set('whatsapp.forwardLastSent', lastSent).catch(() => {});
         await sleep(900);
       }
     }
