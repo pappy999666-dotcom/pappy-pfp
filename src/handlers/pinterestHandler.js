@@ -26,46 +26,60 @@ async function start(ctx) {
 async function search(ctx, query, page = 0) {
   let msg;
   try {
-    msg = await ctx.reply(ui.loading(`Searching for *"${query}"*...`), { parse_mode: 'HTML' });
+    msg = await ctx.reply(ui.loading(`Searching Pinterest for <b>${ui.esc(query)}</b>...`), { parse_mode: 'HTML' });
 
     const imgs = await searchImages(query, page, 20);
     await ctx.telegram.deleteMessage(ctx.chat.id, msg.message_id).catch(() => {});
 
     if (!imgs.length) {
-      return ctx.reply(ui.info('No Results', `No images found for *"${query}"*.`), {
+      return ctx.reply(ui.info('No Results', `No images found for <b>${ui.esc(query)}</b>.`), {
         parse_mode: 'HTML', reply_markup: K.backMain(),
       });
+    }
+
+    // Download images with Pinterest referer so Telegram can receive them
+    const axios = require('axios');
+    const PIN_HEADERS = { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+
+    async function fetchBuffer(url) {
+      const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000, headers: PIN_HEADERS });
+      return Buffer.from(r.data);
     }
 
     const batch1 = imgs.slice(0, 10);
     const batch2 = imgs.slice(10, 20);
 
-    const media1 = batch1.map((img, i) => ({
-      type: 'photo',
-      media: img.url,
-      ...(i === 0 ? { caption: `*"${query}"* - Page ${page + 1}\n${imgs.length} images`, parse_mode: 'HTML' } : {}),
-    }));
-
+    // Send first batch
     try {
-      await ctx.replyWithMediaGroup(media1);
-    } catch {
-      for (const img of batch1.slice(0, 5)) {
-        await ctx.replyWithPhoto(img.url, { caption: img.title }).catch(() => {});
+      const buffers1 = await Promise.all(batch1.map(img => fetchBuffer(img.url).catch(() => null)));
+      const valid1 = buffers1.map((buf, i) => ({ buf, img: batch1[i] })).filter(x => x.buf);
+      if (valid1.length) {
+        const media1 = valid1.map(({ buf }, i) => ({
+          type: 'photo',
+          media: { source: buf },
+          ...(i === 0 ? { caption: `<b>${ui.esc(query)}</b> — Page ${page + 1} · ${imgs.length} images`, parse_mode: 'HTML' } : {}),
+        }));
+        await ctx.replyWithMediaGroup(media1);
       }
+    } catch (e) {
+      logger.warn('Pinterest batch1 send: ' + e.message);
     }
 
-    if (batch2.length > 0) {
-      const media2 = batch2.map(img => ({ type: 'photo', media: img.url }));
+    // Send second batch
+    if (batch2.length) {
       try {
-        await ctx.replyWithMediaGroup(media2);
-      } catch {
-        for (const img of batch2.slice(0, 5)) {
-          await ctx.replyWithPhoto(img.url, { caption: img.title }).catch(() => {});
+        const buffers2 = await Promise.all(batch2.map(img => fetchBuffer(img.url).catch(() => null)));
+        const valid2 = buffers2.map((buf, i) => ({ buf, img: batch2[i] })).filter(x => x.buf);
+        if (valid2.length) {
+          const media2 = valid2.map(({ buf }) => ({ type: 'photo', media: { source: buf } }));
+          await ctx.replyWithMediaGroup(media2);
         }
+      } catch (e) {
+        logger.warn('Pinterest batch2 send: ' + e.message);
       }
     }
 
-    await ctx.reply(`> Showing *${imgs.length}* images for *"${query}"*`, {
+    await ctx.reply(`📌 <b>${imgs.length}</b> results for <b>${ui.esc(query)}</b>`, {
       parse_mode: 'HTML',
       reply_markup: K.pinterestBottom(query, page),
     });

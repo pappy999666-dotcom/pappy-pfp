@@ -527,7 +527,7 @@ async function downloadAndStoreWallpapers(category, count = 10) {
     }
 
     try {
-      const r = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000 });
+      const r = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000, headers: { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' } });
       let buffer = Buffer.from(r.data);
 
       const verify = await verifyBuffer(buffer);
@@ -703,7 +703,7 @@ async function readWallpaperBuffer(wp, enhancerCfg, wmCfg) {
   if (wp.localPath && fs.existsSync(wp.localPath)) {
     buffer = fs.readFileSync(wp.localPath);
   } else {
-    const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000 });
+    const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000, headers: { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' } });
     buffer = Buffer.from(r.data);
     if (enhancerCfg && enhancerCfg.enabled) buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true }).catch(() => buffer);
     if (wmCfg && wmCfg.enabled) buffer = await applyWatermark(buffer, wmCfg).catch(() => buffer);
