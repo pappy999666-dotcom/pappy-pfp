@@ -32,7 +32,7 @@ const { startWorker, restoreJobs } = require('./schedulers/autoChange');
 const { startGroupPfpScheduler, stopGroupPfpScheduler } = require('./schedulers/groupPfpScheduler');
 const { startWallpaperScheduler, stopWallpaperScheduler } = require('./schedulers/wallpaperScheduler');
 const { connectOwnerWA, setupGroupEventListeners, disconnectOwner } = require('./services/ownerWhatsapp');
-const { addAdminChannel, removeAdminChannel, addChat, removeChat } = require('./services/wallpaper');
+const { addAdminChannel, removeAdminChannel, addChat, removeChat, loadPersistedChats } = require('./services/wallpaper');
 const { btn, PRIMARY, SUCCESS } = require('./utils/buttonStyles');
 
 if (!config.botToken) { logger.error('BOT_TOKEN missing!'); process.exit(1); }
@@ -59,6 +59,9 @@ async function launch() {
 
   // 3. Initialize settings manager
   await sm.getAll();
+
+  // Load persisted Telegram chat IDs so drops continue after restart
+  await loadPersistedChats();
 
   // 4. Register bot middleware
   bot.use(upsertUser);
@@ -103,9 +106,17 @@ async function launch() {
     return handlePrompt(ctx, bot);
   });
 
-  const { jidCommand, jidUserCommand } = require('./commands/jid');
+  const { jidCommand, jidUserCommand, resolveCommand, unfollowCommand } = require('./commands/jid');
   bot.command('jid', ctx => jidCommand(ctx));
   bot.command('jiduser', ctx => jidUserCommand(ctx));
+  bot.command('resolve', ctx => resolveCommand(ctx));
+  bot.command('unfollow', ctx => unfollowCommand(ctx));
+
+  const { addCatCommand, suggestCommand, listCatsCommand, viewSuggestionsCommand } = require('./commands/categories');
+  bot.command('addcat', ctx => addCatCommand(ctx));
+  bot.command('suggest', ctx => suggestCommand(ctx));
+  bot.command('listcats', ctx => listCatsCommand(ctx));
+  bot.command('suggestions', ctx => viewSuggestionsCommand(ctx));
 
   bot.command('setname', async ctx => {
     const name = ctx.message.text?.split(' ').slice(1).join(' ').trim();
@@ -232,6 +243,10 @@ async function launch() {
     { command: 'download', description: '📥 Download media from URL' },
     { command: 'setname',  description: '✏️ Change WhatsApp display name' },
     { command: 'jid',      description: '🔍 List WA group/channel JIDs (owner)' },
+    { command: 'resolve',  description: '🔗 Convert WA invite link to JID (owner)' },
+    { command: 'unfollow', description: '📢 List/unfollow WA newsletters (owner)' },
+    { command: 'addcat',   description: '➕ Add custom wallpaper category (owner)' },
+    { command: 'suggest',  description: '💡 Suggest a new wallpaper category' },
   ];
   const groupCommands = [
     { command: 'start',    description: '🏠 Open bot menu in DM' },

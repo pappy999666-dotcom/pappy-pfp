@@ -116,13 +116,41 @@ const channelSchema = new mongoose.Schema({
   addedAt:   { type: Date, default: Date.now },
 });
 
+// ── NEW: Persisted Telegram chat IDs for daily drops ──────────────────────
+const tgChatSchema = new mongoose.Schema({
+  chatId:   { type: String, required: true, unique: true },
+  isAdmin:  { type: Boolean, default: false },
+  addedAt:  { type: Date, default: Date.now },
+  lastSeen: { type: Date, default: Date.now },
+});
+
 // ── NEW: Promotion Links for Daily Drop buttons ────────────────────────────
 const promotionLinkSchema = new mongoose.Schema({
-  label:     { type: String, required: true },   // Button text e.g. "📢 Join WhatsApp"
-  url:       { type: String, required: true },   // URL
+  label:     { type: String, required: true },
+  url:       { type: String, required: true },
   isEnabled: { type: Boolean, default: true },
-  order:     { type: Number, default: 0 },       // Sort order
+  order:     { type: Number, default: 0 },
   addedAt:   { type: Date, default: Date.now },
+});
+
+// ── NEW: Custom wallpaper categories added by owner ───────────────────────
+const customCategorySchema = new mongoose.Schema({
+  key:       { type: String, required: true, unique: true }, // e.g. 'my_category'
+  name:      { type: String, required: true },               // Display name
+  emoji:     { type: String, default: '🖼️' },
+  query:     { type: String, required: true },               // Pinterest/DDG search query
+  hashtags:  [String],
+  isActive:  { type: Boolean, default: true },
+  addedAt:   { type: Date, default: Date.now },
+});
+
+// ── NEW: User category suggestions ───────────────────────────────────────
+const categorySuggestionSchema = new mongoose.Schema({
+  telegramId: { type: String, required: true },
+  username:   String,
+  suggestion: { type: String, required: true },
+  status:     { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
+  addedAt:    { type: Date, default: Date.now },
 });
 
 const User          = mongoose.model('User', userSchema);
@@ -134,9 +162,13 @@ const Settings      = mongoose.model('Settings', settingsSchema);
 const ForceJoin     = mongoose.model('ForceJoin', forceJoinSchema);
 const Wallpaper     = mongoose.model('Wallpaper', wallpaperSchema);
 const Channel       = mongoose.model('Channel', channelSchema);
-const PromotionLink = mongoose.model('PromotionLink', promotionLinkSchema);
+const TgChat         = mongoose.model('TgChat', tgChatSchema);
+const PromotionLink  = mongoose.model('PromotionLink', promotionLinkSchema);
+const CustomCategory = mongoose.model('CustomCategory', customCategorySchema);
+const CategorySuggestion = mongoose.model('CategorySuggestion', categorySuggestionSchema);
 
 module.exports = {
   User, Session, AutoChangeJob, GroupPfpTask,
   SupportTicket, Settings, ForceJoin, Wallpaper, Channel, PromotionLink,
+  CustomCategory, CategorySuggestion, TgChat,
 };

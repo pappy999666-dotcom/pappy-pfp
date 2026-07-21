@@ -37,7 +37,8 @@ async function settingsMenu(ctx) {
     [btn('🔧 Maintenance', 'o_settings_maint', maint.enabled ? DANGER : PRIMARY), btn('📋 Logging', 'o_settings_log', PRIMARY)],
     [btn('📤 Uploads', 'o_settings_uploads', PRIMARY), btn('⏱ Cooldowns', 'o_settings_cooldowns', PRIMARY)],
     [btn('⏰ Scheduler', 'o_settings_scheduler', PRIMARY), btn('💬 WA Channel', 'o_settings_wa', PRIMARY)],
-    [btn('📁 Categories', 'o_settings_cats', PRIMARY)],
+    [btn('📁 Categories', 'o_settings_cats', PRIMARY), btn('➕ Add Category', 'o_addcat_prompt', SUCCESS)],
+    [btn('💡 View Suggestions', 'o_suggestions', PRIMARY)],
     [{ text: '‹ Back to Owner Panel', callback_data: 'owner' }]
   ];
 
@@ -605,6 +606,30 @@ async function categoryToggle(ctx, cat) {
   await categoriesPanel(ctx);
 }
 
+// ── Custom Category (inline) ─────────────────────────────────────────────
+async function addCatPrompt(ctx) {
+  ctx.setState({ step: 'o_settings_addcat' });
+  await ctx.editMessageText([
+    ui.screenHeader(config.bot.name, 'Add Custom Category'),
+    '',
+    '<blockquote>Send in this format:</blockquote>',
+    '<blockquote expandable>key | Display Name | 🎨 | search query dump | tag1,tag2,tag3\n\nExample:\nmy_dark_pfp | My Dark PFP | 🌑 | dark aesthetic pfp dump | DarkPFP,AestheticPFP</blockquote>',
+  ].join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_cats' }]] } }).catch(() => {});
+}
+async function addCatInput(ctx) {
+  clearState(ctx.from.id);
+  const { addCatCommand } = require('../commands/categories');
+  // Reuse the command logic by faking the message text
+  ctx.message = { ...ctx.message, text: '/addcat ' + ctx.message.text };
+  return addCatCommand(ctx);
+}
+async function viewSuggestions(ctx) {
+  const { viewSuggestionsCommand } = require('../commands/categories');
+  // Fake a command context
+  ctx.message = { ...ctx.message, text: '/suggestions' };
+  return viewSuggestionsCommand(ctx);
+}
+
 // ── Convenience aliases (used by callbackRouter) ──────────────────────────────
 async function dropAutoToggle(ctx) { return dropToggle(ctx, 'autoDropEnabled'); }
 async function waAutoToggle(ctx)   { return waToggle(ctx, 'autoPublishDrops'); }
@@ -624,6 +649,7 @@ async function handleInput(ctx, _bot) {
   if (step === 'o_settings_set_wa')          return waRetriesInput(ctx);
   if (step === 'o_settings_set_wa_join_link') return waSetJoinLinkInput(ctx);
   if (step === 'o_settings_wa_forward_add') return waForwardAddInput(ctx);
+  if (step === 'o_settings_addcat') return addCatInput(ctx);
 }
 
 module.exports = {
@@ -640,4 +666,5 @@ module.exports = {
   waPanel, waToggle, waAutoToggle, waForwardPanel, waForwardAddPrompt, waForwardAddInput, waForwardRemove, waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
   handleInput,
   categoriesPanel, categoryToggle,
+  addCatPrompt, addCatInput, viewSuggestions,
 };

@@ -106,6 +106,11 @@ async function route(ctx, bot) {
           const ows = require('./ownerSettingsHandler');
           return ows.handleInput(ctx, bot);
         }
+        if (step === 'suggest_input') {
+          const { suggestCommand } = require('../commands/categories');
+          ctx.message = { ...ctx.message, text: '/suggest ' + ctx.message.text };
+          return suggestCommand(ctx);
+        }
         break;
     }
   } catch (err) {

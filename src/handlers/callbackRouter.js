@@ -269,8 +269,28 @@ async function route(ctx, bot) {
     if (data === 'o_settings_wa_forward')         return ows.waForwardPanel(ctx);
     if (data === 'o_wa_forward_add')              return ows.waForwardAddPrompt(ctx);
     if (data.startsWith('o_wa_forward_remove:'))  return ows.waForwardRemove(ctx, data.split(':')[1]);
-    if (data.startsWith('o_settings_cat_toggle:')) return ows.categoryToggle(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_cat:'))              return ows.categoryToggle(ctx, data.split(':')[1]);
     if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
+    if (data === 'o_addcat_prompt')               return ows.addCatPrompt(ctx);
+    if (data === 'o_suggestions')                 return ows.viewSuggestions(ctx);
+    if (data.startsWith('o_set_drop_tg:'))        return ows.dropToggle(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_drop_pr:'))        return ows.dropSetImagesPrompt(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_wm_pr:'))          return ows.wmSetOpacityPrompt(ctx, data.split(':')[1]);
+    if (data === 'o_set_wm_tg')                   return ows.wmToggle(ctx);
+    if (data === 'o_set_wm_text')                 return ows.wmSetTextPrompt(ctx);
+    if (data === 'o_set_wm_pos')                  return ows.wmSetPositionPanel(ctx);
+    if (data.startsWith('o_set_wm_sel:'))         return ows.wmSetPositionSelect(ctx, data.split(':')[1]);
+    if (data === 'o_set_wm_reset')                return ows.wmReset(ctx);
+    if (data.startsWith('o_set_en_tg:'))          return ows.enhancerToggleEnabled(ctx);
+    if (data.startsWith('o_set_rate:'))           return ows.rateLimitSet(ctx, data.split(':')[1]);
+    if (data === 'o_set_maint_tg')                return ows.maintToggle(ctx);
+    if (data === 'o_set_maint_msg')               return ows.maintMsgPrompt(ctx);
+    if (data.startsWith('o_set_up:'))             return ows.uploadsSet(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_cool:'))           return ows.cooldownsSet(ctx, data.split(':')[1]);
+    if (data.startsWith('o_set_sch_tg:'))         return ows.schedulerToggle(ctx, data.split(':')[1]);
+    if (data === 'o_set_sch_days')                return ows.schedulerSetDays(ctx);
+    if (data.startsWith('o_set_log_lvl:'))        return ows.logSetLevel(ctx, data.split(':')[1]);
+    if (data === 'o_set_log_tg')                  return ows.logToggleDebug(ctx);
 
   } catch (err) {
     return eh.handle(ctx, err, 'callback_router', 'main_menu');

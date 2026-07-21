@@ -98,6 +98,10 @@ const K = {
       [btn('⚡ Mythology', 'wp_mythology', PRIMARY), btn('🐉 Dragons', 'wp_dragons', PRIMARY)],
       [btn('✨ Magic', 'wp_magic', PRIMARY), btn('⚔ Warriors', 'wp_warriors', PRIMARY)],
       [btn('🎉 Weekend Specials', 'wp_weekend_specials', PRIMARY)],
+      [btn('⸸ 𝑷𝑨𝑷𝑷𝒀 Digital Art', 'wp_pappy_digital_art', PRIMARY), btn('🌸 𝑷𝑨𝑷𝑷𝒀 Cute PFP', 'wp_pappy_cute_pfp', PRIMARY)],
+      [btn('✨ 𝑷𝑨𝑷𝑷𝒀 Aesthetic PFP', 'wp_pappy_aesthetic_pfp', PRIMARY), btn('🎌 𝑷𝑨𝑷𝑷𝒀 Anime HD', 'wp_pappy_anime_hd', PRIMARY)],
+      [btn('🖤 𝑷𝑨𝑷𝑷𝒀 Girly PFP', 'wp_pappy_girly_pfp', PRIMARY), btn('🌑 𝑷𝑨𝑷𝑷𝒀 Black Anime', 'wp_pappy_black_anime', PRIMARY)],
+      [btn('👑 𝑷𝑨𝑷𝑷𝒀 Manhwa Dark', 'wp_pappy_manhwa_dark', PRIMARY)],
       [mainMenuBtn()],
     ]};
   },

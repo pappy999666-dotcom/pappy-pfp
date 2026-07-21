@@ -24,6 +24,7 @@ const CATEGORIES = [
   'mythology', 'dragons', 'magic', 'warriors', 'superheroes', 'horror',
   'animals', 'sports', 'lofi', 'food', 'quotes',
   'weekend_specials', 'monthly_collections',
+  'pappy_digital_art', 'pappy_cute_pfp', 'pappy_aesthetic_pfp', 'pappy_anime_hd', 'pappy_girly_pfp', 'pappy_black_anime', 'pappy_manhwa_dark',
 ];
 
 const CATEGORY_QUERIES = {
@@ -77,6 +78,13 @@ const CATEGORY_QUERIES = {
   food: 'food aesthetic delicious vertical phone wallpaper 4k ultra hd',
   quotes: 'motivational quotes text aesthetic vertical phone wallpaper 4k',
   weekend_specials: 'weekend vibes chill aesthetic vertical phone wallpaper 4k',
+  pappy_digital_art: 'digital art anime character portrait vertical phone wallpaper 4k ultra hd pixiv',
+  pappy_cute_pfp: 'cute anime pfp aesthetic portrait vertical phone wallpaper 4k ultra hd',
+  pappy_aesthetic_pfp: 'aesthetic anime pfp girly cute portrait vertical phone wallpaper 4k ultra hd',
+  pappy_anime_hd: 'anime wallpaper hd 1080p portrait vertical phone ultra hd 4k',
+  pappy_girly_pfp: 'girly pfp aesthetic anime black cute portrait vertical phone wallpaper 4k',
+  pappy_black_anime: 'black anime photo dark aesthetic portrait vertical phone wallpaper 4k ultra hd',
+  pappy_manhwa_dark: 'manhwa pfp dark aesthetic portrait vertical phone wallpaper 4k ultra hd',
   monthly_collections: 'monthly collection best aesthetic vertical phone wallpaper 4k ultra hd',
 };
 
@@ -132,6 +140,13 @@ const CATEGORY_HASHTAGS = {
   quotes: ['QuoteWallpaper', 'MotivationalQuotes', 'InspirationalArt', 'DailyVibes', 'DailyDrop'],
   weekend_specials: ['WeekendVibes', 'WeekendWallpaper', 'ChillAesthetic', 'WeekendDrop', 'DailyDrop'],
   monthly_collections: ['MonthlyCollection', 'BestWallpapers', 'TopPicks', 'HDCollection', 'DailyDrop'],
+  pappy_digital_art: ['DigitalArt', 'AnimeArt', 'Pixiv', 'AnimePortrait', 'DailyDrop'],
+  pappy_cute_pfp: ['CutePFP', 'AnimePFP', 'CuteAnime', 'AestheticPFP', 'DailyDrop'],
+  pappy_aesthetic_pfp: ['AestheticPFP', 'GirlyAnime', 'CuteAesthetic', 'AnimePFP', 'DailyDrop'],
+  pappy_anime_hd: ['AnimeWallpaper', 'AnimeHD', '1080p', 'AnimeAesthetic', 'DailyDrop'],
+  pappy_girly_pfp: ['GirlyPFP', 'AestheticAnime', 'BlackCute', 'AnimePFP', 'DailyDrop'],
+  pappy_black_anime: ['BlackAnime', 'DarkAesthetic', 'AnimeBlack', 'DarkAnime', 'DailyDrop'],
+  pappy_manhwa_dark: ['ManhwaPFP', 'DarkManhwa', 'ManhwaAesthetic', 'WebtoonDark', 'DailyDrop'],
 };
 
 const CATEGORY_META = {
@@ -186,29 +201,175 @@ const CATEGORY_META = {
   quotes: { emoji: '💬', name: 'Quotes' },
   weekend_specials: { emoji: '🎉', name: 'Weekend Specials' },
   monthly_collections: { emoji: '🏆', name: 'Monthly Collection' },
+  pappy_digital_art: { emoji: '⸸', name: '𝑷𝑨𝑷𝑷𝒀 Digital Art' },
+  pappy_cute_pfp: { emoji: '🌸', name: '𝑷𝑨𝑷𝑷𝒀 Cute PFP' },
+  pappy_aesthetic_pfp: { emoji: '✨', name: '𝑷𝑨𝑷𝑷𝒀 Aesthetic PFP' },
+  pappy_anime_hd: { emoji: '🎌', name: '𝑷𝑨𝑷𝑷𝒀 Anime HD' },
+  pappy_girly_pfp: { emoji: '🖤', name: '𝑷𝑨𝑷𝑷𝒀 Girly PFP' },
+  pappy_black_anime: { emoji: '🌑', name: '𝑷𝑨𝑷𝑷𝒀 Black Anime' },
+  pappy_manhwa_dark: { emoji: '👑', name: '𝑷𝑨𝑷𝑷𝒀 Manhwa Dark' },
 };
 
 
 
+// Pinterest dump-style search profiles — each seed is a real Pinterest-style dump query
 const EDITORIAL_SEARCH_PROFILES = [
-  { category: 'anime', emoji: '🎀', name: 'Anime Girls', mood: 'soft glow heroine portraits, save-worthy profile pictures', seeds: ['anime girl portrait wallpaper pixiv', 'official anime illustration girl aesthetic', 'anime girl pfp digital painting'] },
-  { category: 'boys', emoji: '🗡️', name: 'Anime Boys', mood: 'sharp character portraits with cinematic lighting', seeds: ['anime boy pfp official art', 'handsome anime boy portrait wallpaper', 'manhwa male lead pfp aesthetic'] },
-  { category: 'amoled', emoji: '⬛', name: 'AMOLED Wallpapers', mood: 'deep blacks, neon edges, OLED-safe contrast', seeds: ['amoled anime wallpaper portrait', 'black anime wallpaper 4k phone', 'dark anime pfp black background'] },
-  { category: 'cute_anime', emoji: '🌸', name: 'Cute / Kawaii', mood: 'pastel, cozy, adorable saves for Gen Z feeds', seeds: ['kawaii anime pfp pastel', 'cute anime girl wallpaper portrait', 'soft anime aesthetic profile picture'] },
-  { category: 'dark_anime', emoji: '🕯️', name: 'Dark Aesthetic', mood: 'moody shadows, gothic romance, premium edit material', seeds: ['dark anime aesthetic wallpaper', 'gothic anime pfp', 'vampire anime portrait wallpaper'] },
-  { category: 'manhwa', emoji: '👑', name: 'Manhwa / Webtoon', mood: 'romance-fantasy leads and polished Korean webtoon visuals', seeds: ['manhwa romance fantasy wallpaper', 'webtoon character pfp aesthetic', 'manhwa couple matching pfp'] },
-  { category: 'fantasy', emoji: '🪽', name: 'Fantasy Angels & Demons', mood: 'angel wings, demon aura, royal fantasy drama', seeds: ['anime angel wallpaper portrait', 'anime demon pfp digital art', 'fantasy anime character illustration'] },
-  { category: 'cyberpunk', emoji: '🌃', name: 'Cyberpunk Night', mood: 'neon rain, lofi city nights, futuristic edits', seeds: ['cyberpunk anime wallpaper portrait', 'lofi anime night city wallpaper', 'neon anime pfp'] },
-  { category: 'japanese', emoji: '⛩️', name: 'Japanese Aesthetic', mood: 'sakura, shrine nights, clean Japan-inspired compositions', seeds: ['japanese anime aesthetic wallpaper', 'anime sakura portrait wallpaper', 'tokyo night anime wallpaper phone'] },
-  { category: 'aesthetic', emoji: '✨', name: 'Trending Pinterest Art', mood: 'Pinterest-save energy: clean, stylish, and highly shareable', seeds: ['trending anime pfp pinterest', 'pixiv quality digital art portrait', 'anime matching pfp aesthetic'] },
+  {
+    category: 'anime',
+    emoji: '🎀', name: 'Anime Girls',
+    mood: 'soft glow heroine portraits, save-worthy profile pictures',
+    seeds: [
+      'anime girl pfp dump', 'cute anime girl wallpaper dump', 'anime girl portrait dump pinterest',
+      'aesthetic anime girl pfp dump 2024', 'anime girl phone wallpaper dump hd',
+    ],
+  },
+  {
+    category: 'boys',
+    emoji: '🗡️', name: 'Anime Boys',
+    mood: 'sharp character portraits with cinematic lighting',
+    seeds: [
+      'anime boy pfp dump', 'dark anime boy wallpaper dump', 'manhwa male lead pfp dump',
+      'handsome anime boy portrait dump', 'anime boy aesthetic wallpaper dump pinterest',
+    ],
+  },
+  {
+    category: 'amoled',
+    emoji: '⬛', name: 'AMOLED Wallpapers',
+    mood: 'deep blacks, neon edges, OLED-safe contrast',
+    seeds: [
+      'black anime wallpaper dump', 'amoled dark anime pfp dump', 'pure black phone wallpaper dump',
+      'dark amoled wallpaper dump 4k', 'black aesthetic anime wallpaper dump',
+    ],
+  },
+  {
+    category: 'cute_anime',
+    emoji: '🌸', name: 'Cute / Kawaii',
+    mood: 'pastel, cozy, adorable saves for Gen Z feeds',
+    seeds: [
+      'cute anime pfp dump', 'kawaii anime girl wallpaper dump', 'pastel anime aesthetic pfp dump',
+      'soft cute anime portrait dump', 'adorable anime girl pfp dump pinterest',
+    ],
+  },
+  {
+    category: 'dark_anime',
+    emoji: '🕯️', name: 'Dark Aesthetic',
+    mood: 'moody shadows, gothic romance, premium edit material',
+    seeds: [
+      'dark anime pfp dump', 'gothic anime wallpaper dump', 'dark aesthetic anime portrait dump',
+      'moody dark anime girl pfp dump', 'dark anime boy wallpaper dump pinterest',
+    ],
+  },
+  {
+    category: 'manhwa',
+    emoji: '👑', name: 'Manhwa / Webtoon',
+    mood: 'romance-fantasy leads and polished Korean webtoon visuals',
+    seeds: [
+      'manhwa pfp dump', 'webtoon character wallpaper dump', 'manhwa romance fantasy pfp dump',
+      'korean webtoon aesthetic pfp dump', 'manhwa couple matching pfp dump',
+    ],
+  },
+  {
+    category: 'fantasy',
+    emoji: '🪽', name: 'Fantasy Angels & Demons',
+    mood: 'angel wings, demon aura, royal fantasy drama',
+    seeds: [
+      'fantasy anime pfp dump', 'anime angel demon wallpaper dump', 'dark fantasy portrait dump pinterest',
+      'anime demon girl pfp dump', 'fantasy character wallpaper dump hd',
+    ],
+  },
+  {
+    category: 'cyberpunk',
+    emoji: '🌃', name: 'Cyberpunk Night',
+    mood: 'neon rain, lofi city nights, futuristic edits',
+    seeds: [
+      'cyberpunk wallpaper dump', 'neon city anime wallpaper dump', 'cyberpunk aesthetic pfp dump',
+      'lofi night city wallpaper dump', 'cyberpunk anime portrait dump pinterest',
+    ],
+  },
+  {
+    category: 'japanese',
+    emoji: '⛩️', name: 'Japanese Aesthetic',
+    mood: 'sakura, shrine nights, clean Japan-inspired compositions',
+    seeds: [
+      'japanese aesthetic wallpaper dump', 'anime sakura pfp dump', 'tokyo night anime wallpaper dump',
+      'japanese anime portrait dump pinterest', 'lofi japan aesthetic wallpaper dump',
+    ],
+  },
+  {
+    category: 'aesthetic',
+    emoji: '✨', name: 'Trending Pinterest Art',
+    mood: 'Pinterest-save energy: clean, stylish, and highly shareable',
+    seeds: [
+      'aesthetic anime pfp dump', 'trending anime wallpaper dump 2024', 'pixiv art dump pinterest',
+      'aesthetic pfp dump pinterest', 'anime matching pfp dump',
+    ],
+  },
+  {
+    category: 'pappy_digital_art',
+    emoji: '⸸', name: 'PAPPY Digital Art',
+    mood: 'high-detail digital paintings, pixiv-quality character art',
+    seeds: [
+      'digital art anime dump', 'pixiv art dump wallpaper', 'anime digital painting dump pinterest',
+      'character art dump hd', 'anime illustration dump 4k',
+    ],
+  },
+  {
+    category: 'pappy_cute_pfp',
+    emoji: '🌸', name: 'PAPPY Cute PFP',
+    mood: 'adorable save-worthy profile pictures for every feed',
+    seeds: [
+      'cute pfp dump', 'cute anime pfp dump pinterest', 'adorable pfp dump 2024',
+      'soft cute pfp dump aesthetic', 'cute girl pfp dump hd',
+    ],
+  },
+  {
+    category: 'pappy_aesthetic_pfp',
+    emoji: '✨', name: 'PAPPY Aesthetic PFP',
+    mood: 'clean aesthetic profile pictures, highly shareable',
+    seeds: [
+      'aesthetic pfp dump', 'girly aesthetic pfp dump pinterest', 'aesthetic anime pfp dump 2024',
+      'soft aesthetic pfp dump', 'aesthetic profile picture dump hd',
+    ],
+  },
+  {
+    category: 'pappy_anime_hd',
+    emoji: '🎌', name: 'PAPPY Anime HD',
+    mood: '1080p+ anime wallpapers, crisp and vibrant',
+    seeds: [
+      'anime wallpaper dump hd', 'anime 4k wallpaper dump', 'hd anime portrait dump pinterest',
+      'anime wallpaper dump 1080p', 'ultra hd anime wallpaper dump',
+    ],
+  },
+  {
+    category: 'pappy_girly_pfp',
+    emoji: '🖤', name: 'PAPPY Girly PFP',
+    mood: 'girly aesthetic pfps, black and cute vibes',
+    seeds: [
+      'girly pfp dump', 'black girly pfp dump pinterest', 'cute girly anime pfp dump',
+      'girly aesthetic pfp dump 2024', 'black cute pfp dump hd',
+    ],
+  },
+  {
+    category: 'pappy_black_anime',
+    emoji: '🌑', name: 'PAPPY Black Anime',
+    mood: 'dark black anime aesthetics, moody and premium',
+    seeds: [
+      'black anime pfp dump', 'dark black anime wallpaper dump', 'black aesthetic anime dump pinterest',
+      'black anime portrait dump 4k', 'dark anime black pfp dump',
+    ],
+  },
+  {
+    category: 'pappy_manhwa_dark',
+    emoji: '👑', name: 'PAPPY Manhwa Dark',
+    mood: 'dark manhwa aesthetics, powerful character energy',
+    seeds: [
+      'dark manhwa pfp dump', 'manhwa dark aesthetic dump pinterest', 'dark webtoon character pfp dump',
+      'manhwa villain pfp dump', 'dark manhwa wallpaper dump hd',
+    ],
+  },
 ];
 
-const SEARCH_QUALITY_TERMS = [
-  'portrait phone wallpaper', '4k ultra hd', 'high resolution', 'digital painting',
-  'official illustration', 'pixiv quality', 'clean composition', 'profile picture'
-];
-const SEARCH_NEGATIVE_TERMS = '-screenshot -meme -comic panel -low quality -blurry -repost -watermark';
-const SEARCH_HISTORY_LIMIT = 36;
+const SEARCH_HISTORY_LIMIT = 50;
 let editorialCursor = Math.floor(Date.now() / 36e5) % EDITORIAL_SEARCH_PROFILES.length;
 
 function pickEditorialProfile(category) {
@@ -222,35 +383,84 @@ function pickEditorialProfile(category) {
 async function buildEditorialQuery(category) {
   const dropsCfg = await sm.getGroup('drops');
   const recent = Array.isArray(dropsCfg.recentSearches) ? dropsCfg.recentSearches : [];
-  const profiles = [pickEditorialProfile(category), ...EDITORIAL_SEARCH_PROFILES].filter(Boolean);
-  const qualities = [...SEARCH_QUALITY_TERMS];
+  const profile = pickEditorialProfile(category);
+  const seeds = profile.seeds;
 
-  for (let attempt = 0; attempt < profiles.length * 4; attempt++) {
-    const profile = profiles[(editorialCursor + attempt) % profiles.length];
-    const seed = profile.seeds[(Math.floor(Date.now() / 60000) + attempt) % profile.seeds.length];
-    const quality = qualities
-      .map(term => ({ term, score: Math.random() }))
-      .sort((a, b) => a.score - b.score)
-      .slice(0, 4)
-      .map(x => x.term)
-      .join(' ');
-    const query = `${seed} ${quality} ${SEARCH_NEGATIVE_TERMS}`;
-    if (!recent.includes(query) || attempt === profiles.length * 4 - 1) {
-      editorialCursor = (editorialCursor + attempt + 1) % EDITORIAL_SEARCH_PROFILES.length;
-      const nextRecent = [query, ...recent.filter(q => q !== query)].slice(0, SEARCH_HISTORY_LIMIT);
+  // Pick a seed not recently used, rotating by minute
+  const minuteSlot = Math.floor(Date.now() / 60000);
+  for (let i = 0; i < seeds.length; i++) {
+    const seed = seeds[(minuteSlot + i) % seeds.length];
+    if (!recent.includes(seed)) {
+      const nextRecent = [seed, ...recent.filter(q => q !== seed)].slice(0, SEARCH_HISTORY_LIMIT);
       await sm.set('drops.recentSearches', nextRecent).catch(() => {});
-      return query;
+      return seed;
     }
   }
+  // All seeds recently used — just rotate
+  const seed = seeds[minuteSlot % seeds.length];
+  const nextRecent = [seed, ...recent.filter(q => q !== seed)].slice(0, SEARCH_HISTORY_LIMIT);
+  await sm.set('drops.recentSearches', nextRecent).catch(() => {});
+  return seed;
 }
 
 const allChatIds = new Set();
 const adminChatIds = new Set();
 
-function addAdminChannel(chatId) { if (chatId) { adminChatIds.add(String(chatId)); allChatIds.add(String(chatId)); } }
-function removeAdminChannel(chatId) { if (chatId) adminChatIds.delete(String(chatId)); }
-function addChat(chatId) { if (chatId) allChatIds.add(String(chatId)); }
-function removeChat(chatId) { if (chatId) { allChatIds.delete(String(chatId)); adminChatIds.delete(String(chatId)); } }
+// Load persisted chats from MongoDB into memory
+async function loadPersistedChats() {
+  try {
+    const { TgChat } = require('../database/models');
+    const chats = await TgChat.find({});
+    for (const c of chats) {
+      allChatIds.add(c.chatId);
+      if (c.isAdmin) adminChatIds.add(c.chatId);
+    }
+    logger.info(`Loaded ${chats.length} persisted chat IDs from DB`);
+  } catch (e) {
+    logger.warn('Could not load persisted chats: ' + e.message);
+  }
+}
+
+async function _persistChat(chatId, isAdmin = false) {
+  try {
+    const { TgChat } = require('../database/models');
+    await TgChat.findOneAndUpdate(
+      { chatId: String(chatId) },
+      { chatId: String(chatId), isAdmin, lastSeen: new Date() },
+      { upsert: true, new: true }
+    );
+  } catch (e) { /* non-fatal */ }
+}
+
+async function _removePersistedChat(chatId) {
+  try {
+    const { TgChat } = require('../database/models');
+    await TgChat.deleteOne({ chatId: String(chatId) });
+  } catch (e) { /* non-fatal */ }
+}
+
+function addAdminChannel(chatId) {
+  if (!chatId) return;
+  adminChatIds.add(String(chatId));
+  allChatIds.add(String(chatId));
+  _persistChat(String(chatId), true);
+}
+function removeAdminChannel(chatId) {
+  if (!chatId) return;
+  adminChatIds.delete(String(chatId));
+  _persistChat(String(chatId), false);
+}
+function addChat(chatId) {
+  if (!chatId) return;
+  allChatIds.add(String(chatId));
+  _persistChat(String(chatId), adminChatIds.has(String(chatId)));
+}
+function removeChat(chatId) {
+  if (!chatId) return;
+  allChatIds.delete(String(chatId));
+  adminChatIds.delete(String(chatId));
+  _removePersistedChat(String(chatId));
+}
 
 function buildDropCaption(category, count) {
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) };
@@ -559,16 +769,32 @@ async function getGroupMentions(sock, jid) {
   }
 }
 
-function buildWaCaption(category, count) {
+async function fetchWyrQuestion() {
+  try {
+    const r = await axios.get('https://prexzyapis.com/ai/chatbot', {
+      params: { text: 'Give me one short fun "Would You Rather" question about anime, aesthetics, or wallpapers. Just the question, no explanation.' },
+      timeout: 6000,
+    });
+    const answer = r.data?.response || r.data?.message || r.data?.answer || '';
+    return answer.trim().slice(0, 200) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function buildWaCaption(category, count) {
   const profile = pickEditorialProfile(category);
   const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
   const botUrl = config.bot.username ? `https://t.me/${config.bot.username}` : '';
+  const wyr = await fetchWyrQuestion();
   return [
     `╭─ ${profile.emoji} *DAILY DROP* ─╮`,
     `*${profile.name}* · ${count} premium picks`,
     '╰────────────────╯',
     '',
     `> ${profile.mood}`,
+    '',
+    wyr ? `🎲 *WYR:* ${wyr}` : '',
     '',
     '• Portrait-first HD wallpapers',
     '• Save-ready PFP / lockscreen quality',
@@ -690,7 +916,7 @@ module.exports = {
   getOrFetchWallpapers, postWallpapersToAllTgChannels,
   postWallpapersToWA, runCategoryDrop,
   addAdminChannel, removeAdminChannel,
-  addChat, removeChat,
+  addChat, removeChat, loadPersistedChats,
   allChatIds, adminChatIds,
   buildDropCaption, buildWaCaption, buildEditorialQuery, getPromoButtons,
 };
