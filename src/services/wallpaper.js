@@ -734,8 +734,9 @@ async function fetchWyrQuestion() {
       params: { text: 'Give me one short fun "Would You Rather" question about anime, aesthetics, or wallpapers. Just the question, no explanation.' },
       timeout: 6000,
     });
-    const answer = r.data?.response || r.data?.message || r.data?.answer || '';
-    return answer.trim().slice(0, 200) || null;
+    const answer = r.data?.data?.response || r.data?.response || r.data?.message || r.data?.answer || '';
+    // Strip markdown bold (**text**) for clean WA display
+    return answer.replace(/\*\*([^*]+)\*\*/g, '$1').trim().slice(0, 200) || null;
   } catch (e) {
     return null;
   }
@@ -745,18 +746,19 @@ async function buildWaCaption(category, count) {
   const profile = pickEditorialProfile(category);
   const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
   const wyr = await fetchWyrQuestion();
+  const countWord = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'][count] || String(count);
   return [
-    `২ৎ ── ✶ 𝓐𝓪𝓜𝓜𝓮 𝒺𝓲𝓻𝓵𝓼 𝓓𝓷𝓸𝓹 ✶ ── ২ৎ`,
-    `♥ ˚₊‧ 𝟭𝟬 ℍ𝟗 ᵔᴰᴸᴸᴰᴰᴰᴰᴰᴰ`,
-    `২ৎ 𝓪𝓮𝓼𝓽𝓱𝓮𝓽𝓲𝓬 & 𝓟𝓲𝓪𝓽𝓮𝓻𝓮𝓼𝓽-𝓼𝓸𝓻𝓽𝓱𝓶 𝓟𝓟𝓟𝓼.`,
+    `২ৎ ── ✶ ${profile.name.toUpperCase()} DROP ✶ ── ২ৎ`,
+    `♥ *${countWord} HD Wallpapers*`,
+    `${profile.mood}.`,
     ``,
     wyr ? `🎲 *WYR:* ${wyr}` : '',
+    `🎀⋆ Save your favorites and use them as your wallpaper or WhatsApp PFP.`,
     ``,
-    `🎀₊˚✧ 𝓪𝓮𝓳𝓮 𝓶𝓸𝓹𝓻 𝓯𝓮𝓳𝓮𝓼,𝓹𝓼𝓮 𝓽𝓱𝓮𝓺 𝓮𝓼 𝓶𝓸𝓹𝓻`,
-    `𝓼𝓮𝓵𝓵𝓹𝓮𝓹𝓮𝓻 𝓸𝓻 𝓹𝓻𝓸𝓯𝓲𝓵𝓮 𝓹𝓲𝓬𝓽𝓹𝓻𝓮.`,
-    ``,
-    `♥╭─ 🌐 𝒭𝓹𝓵𝓵-𝓪𝓲𝓿𝓮 𝓜𝓱𝓮𝓽𝓼𝓐𝓹𝓹 𝓟𝒭𝓟 ─╮`,
-    `│ 𝒵𝓸 𝓬𝓻𝓸𝓹 • 𝒯𝓍 • 𝓞𝓷𝓮 𝒯𝓮𝓹`,
+    `╭─ 🌐 *Full-Size WhatsApp PFP* ─╮`,
+    `│ ✶ No Crop`,
+    `│ ✶ Full Quality`,
+    `│ ✶ One-Tap Upload`,
     `│ ${config.webUrl}`,
     `╰────────────────────╯`,
     ``,

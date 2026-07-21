@@ -11,8 +11,9 @@ async function searchPinterestAPI(query, count = 20) {
   const token = config.apis.pinterestToken;
   if (!token) return null;
   try {
-    const r = await axios.get(`${PIN_API}/pins`, {
-      params: { query, page_size: Math.min(count, 25), media_type: 'image' },
+    // Pinterest v5 API uses OAuth2 access token
+    const r = await axios.get(`${PIN_API}/search/pins`, {
+      params: { query, page_size: Math.min(count, 25) },
       headers: { Authorization: `Bearer ${token}` },
       timeout: 12000,
     });
@@ -71,22 +72,33 @@ async function searchImages(query, page = 0, count = 20) {
 }
 
 async function searchDDG(query, page = 0, count = 20) {
+  // Search Pinterest specifically via DDG
+  const pinQuery = `site:pinterest.com ${query}`;
   try {
     const r1 = await axios.get('https://duckduckgo.com/', {
-      params: { q: query, iax: 'images', ia: 'images' },
+      params: { q: pinQuery, iax: 'images', ia: 'images' },
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
       timeout: 10000,
     });
     const match = r1.data.match(/vqd=([\d-]+)/);
     if (!match) throw new Error('No vqd');
     const r2 = await axios.get('https://duckduckgo.com/i.js', {
-      params: { l: 'us-en', o: 'json', q: query, vqd: match[1], f: ',,,,,', p: '1', s: page * count },
+      params: { l: 'us-en', o: 'json', q: pinQuery, vqd: match[1], f: ',,,,,', p: '1', s: page * count },
       headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://duckduckgo.com' },
       timeout: 10000,
     });
-    const results = (r2.data?.results || []).slice(0, count);
-    logger.info(`DDG fallback "${query}": ${results.length} images`);
-    return results.filter(r => r.image).map(r => ({ url: r.image, source: 'duckduckgo', title: r.title || query }));
+    // Extract only pinimg.com URLs from results
+    const results = (r2.data?.results || []).slice(0, count * 2);
+    const pinImgs = results
+      .filter(r => r.image && r.image.includes('pinimg.com'))
+      .map(r => ({ url: r.image, source: 'pinterest_ddg', title: r.title || query }));
+    // Also grab any pinimg URLs from thumbnails
+    const allImgs = results
+      .filter(r => r.image)
+      .map(r => ({ url: r.image, source: 'duckduckgo', title: r.title || query }));
+    const final = pinImgs.length >= 5 ? pinImgs : allImgs;
+    logger.info(`DDG fallback "${query}": ${final.length} images (${pinImgs.length} from Pinterest)`);
+    return final.slice(0, count);
   } catch (e) {
     logger.warn(`DDG fallback failed: ${e.message}`);
     return [];

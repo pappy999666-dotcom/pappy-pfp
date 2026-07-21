@@ -42,13 +42,44 @@ async function downloadMedia(url) {
 }
 
 async function downloadPinterest(url) {
+  const config = require('../config');
+  const axios = require('axios');
+  const PIN_HDR = { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+
+  // If official API token set, use it to get pin images
+  if (config.apis.pinterestToken) {
+    try {
+      // Extract pin ID from URL
+      const pinIdMatch = url.match(/\/pin\/(\d+)/);
+      if (pinIdMatch) {
+        const pinId = pinIdMatch[1];
+        const r = await axios.get(`https://api.pinterest.com/v5/pins/${pinId}`, {
+          headers: { Authorization: `Bearer ${config.apis.pinterestToken}` },
+          timeout: 10000,
+        });
+        const pin = r.data;
+        const imgUrl = pin?.media?.images?.['1200x']?.url || pin?.media?.images?.original?.url || pin?.media?.images?.['600x']?.url;
+        if (imgUrl) {
+          return {
+            platform: 'Pinterest',
+            type: 'images',
+            media: [{ url: imgUrl, type: 'photo', title: pin.title || 'Pinterest Image', _pinHdr: true }],
+          };
+        }
+      }
+    } catch (e) {
+      logger.warn(`Pinterest API pin fetch: ${e.message}`);
+    }
+  }
+
+  // Scraper fallback
   const { downloadPinterestPost } = require('../services/pinterest');
   const images = await downloadPinterestPost(url);
   if (!images.length) return { error: 'No images found on this Pinterest page' };
   return {
     platform: 'Pinterest',
     type: 'images',
-    media: images.map(img => ({ url: img.url, type: 'photo', title: img.title })),
+    media: images.map(img => ({ url: img.url, type: 'photo', title: img.title || 'Pinterest Image', _pinHdr: true })),
   };
 }
 
