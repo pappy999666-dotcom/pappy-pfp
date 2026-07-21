@@ -27,15 +27,33 @@ function enhancePrompt(userPrompt) {
 async function generateImage(prompt, options = {}) {
   const enhancedPrompt = enhancePrompt(prompt);
 
-  // Primary: prexzyapis DALL-E (free, no key needed)
+  // Try 1: prexzy genimage (Flux, Firebase CDN — reliable)
   try {
-    logger.info('Image gen: trying prexzy dalle');
-    const r = await axios.get(PREXZY_DALLE, {
+    logger.info('Image gen: trying prexzy genimage');
+    const r = await axios.get('https://prexzyapis.com/ai/genimage', {
       params: { prompt: enhancedPrompt },
       timeout: 60000,
     });
-    const imageUrl = r.data?.image_url?.[0]?.image?.url || r.data?.image_url;
-    if (imageUrl && typeof imageUrl === 'string') {
+    const imageUrl = r.data?.image_url;
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+      const imgResp = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+      const buffer = Buffer.from(imgResp.data);
+      logger.info('Image gen: prexzy genimage success');
+      return { url: imageUrl, buffer, model: 'Flux (prexzy)' };
+    }
+  } catch (e) {
+    logger.warn('Image gen prexzy genimage failed: ' + e.message);
+  }
+
+  // Try 2: prexzy dalle (DALL-E 3 XL — HuggingFace, may be slow)
+  try {
+    logger.info('Image gen: trying prexzy dalle');
+    const r = await axios.get('https://prexzyapis.com/ai/dalle', {
+      params: { prompt: enhancedPrompt },
+      timeout: 90000,
+    });
+    const imageUrl = r.data?.image_url?.[0]?.image?.url;
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
       const imgResp = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
       const buffer = Buffer.from(imgResp.data);
       logger.info('Image gen: prexzy dalle success');
@@ -45,7 +63,7 @@ async function generateImage(prompt, options = {}) {
     logger.warn('Image gen prexzy dalle failed: ' + e.message);
   }
 
-  // Fallback: OpenRouter
+  // Try 3: OpenRouter (needs API key)
   const apiKey = config.apis.openrouterKey;
   if (apiKey) {
     for (const model of IMAGE_MODELS) {
@@ -59,7 +77,7 @@ async function generateImage(prompt, options = {}) {
               Authorization: `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
               'HTTP-Referer': config.webUrl || 'https://pappywapfpchanger.duckdns.org',
-              'X-Title': config.bot.name || 'PAPPYBOT',
+              'X-Title': config.bot?.name || 'PAPPYBOT',
             },
             timeout: 60000,
           }
