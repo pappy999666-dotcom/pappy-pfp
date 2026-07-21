@@ -118,7 +118,23 @@ async function launch() {
   bot.command('listcats', ctx => listCatsCommand(ctx));
   bot.command('suggestions', ctx => viewSuggestionsCommand(ctx));
 
-  bot.command('wadrop', ctx => ow.waDrop(ctx, bot));
+  bot.command('wadrop', async ctx => {
+    if (!config.ownerIds.includes(String(ctx.from?.id))) return;
+    const { isOwnerConnected } = require('./services/ownerWhatsapp');
+    if (!isOwnerConnected()) return ctx.reply('❌ Owner WA not connected.', { parse_mode: 'HTML' });
+    const { postWallpapersToWA } = require('./services/wallpaper');
+    const category = ctx.message?.text?.split(' ')[1]?.trim() || 'anime';
+    const wait = await ctx.reply(`⏳ Sending WA drop: <b>${category}</b>...`, { parse_mode: 'HTML' });
+    try {
+      const result = await postWallpapersToWA(category);
+      await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
+        `✅ <b>WA Drop Sent</b>\nCategory: <b>${category}</b> · <b>${result.length}</b> wallpapers → channel + group forward`,
+        { parse_mode: 'HTML' }
+      ).catch(() => {});
+    } catch (e) {
+      await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null, `❌ ${e.message}`).catch(() => {});
+    }
+  });
 
   bot.command('setname', async ctx => {
     const name = ctx.message.text?.split(' ').slice(1).join(' ').trim();

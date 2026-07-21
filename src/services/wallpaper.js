@@ -11,6 +11,7 @@ const { filterUrls, verifyBuffer } = require('../utils/qualityFilter');
 const { enhance } = require('../utils/imageEnhancer');
 const { applyWatermark } = require('../utils/watermark');
 const sm = require('../config/settingsManager');
+const { searchImages: pinterestSearch } = require('./pinterest');
 const ui = require('../utils/ui');
 
 const CATEGORIES = [
@@ -497,61 +498,13 @@ async function getPromoButtons() {
 }
 
 async function fetchWallpapers(category, count = 10) {
-  const query = await buildEditorialQuery(category) || CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} vertical phone wallpaper 4k ultra hd`;
+  const query = await buildEditorialQuery(category) || CATEGORY_QUERIES[category] || `${category.replace(/_/g, ' ')} pfp dump`;
   const cacheKey = `search_${category}_${query.replace(/[^a-z0-9]/gi, '_').slice(0, 48)}`;
 
   return wallpaperCache.getOrSet(cacheKey, async () => {
-    const images = [];
-
-    // 1. DuckDuckGo search
-    try {
-      const r1 = await axios.get('https://duckduckgo.com/', {
-        params: { q: query, iax: 'images', ia: 'images' },
-        headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
-        timeout: 10000,
-      });
-      const match = r1.data.match(/vqd=([\d-]+)/);
-      if (match) {
-        const vqd = match[1];
-        const r2 = await axios.get('https://duckduckgo.com/i.js', {
-          params: { l: 'us-en', o: 'json', q: query, vqd, f: ',,,,,', p: '1', s: '0' },
-          headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36', Referer: 'https://duckduckgo.com' },
-          timeout: 10000,
-        });
-        const ddgResults = (r2.data?.results || []).map(r => ({ url: r.image, source: 'duckduckgo' }));
-        images.push(...filterUrls(ddgResults));
-      }
-    } catch (e) {
-      logger.warn(`DDG search (${category}): ${e.message}`);
-    }
-
-    // 2. Unsplash fallback
-    if (images.length < 5 && config.apis.unsplashKey) {
-      try {
-        const r = await axios.get('https://api.unsplash.com/search/photos', {
-          params: { query, per_page: 30, orientation: 'portrait' },
-          headers: { Authorization: `Client-ID ${config.apis.unsplashKey}` },
-          timeout: 10000,
-        });
-        const unResults = (r.data?.results || []).map(p => ({ url: p.urls?.raw || p.urls?.full || p.urls?.regular, source: 'unsplash' }));
-        images.push(...filterUrls(unResults));
-      } catch (e) { logger.warn(`Unsplash (${category}): ${e.message}`); }
-    }
-
-    // 3. Pexels fallback
-    if (images.length < 5 && config.apis.pexelsKey) {
-      try {
-        const r = await axios.get('https://api.pexels.com/v1/search', {
-          params: { query, per_page: 30, orientation: 'portrait', size: 'large' },
-          headers: { Authorization: config.apis.pexelsKey },
-          timeout: 10000,
-        });
-        const pexResults = (r.data?.photos || []).map(p => ({ url: p.src?.original || p.src?.large2x || p.src?.portrait, source: 'pexels' }));
-        images.push(...filterUrls(pexResults));
-      } catch (e) { logger.warn(`Pexels (${category}): ${e.message}`); }
-    }
-
-    return images.filter(img => img.url).slice(0, Math.max(count, 30));
+    const images = await pinterestSearch(query, 0, Math.max(count, 30));
+    logger.info(`fetchWallpapers (${category}): ${images.length} images via Pinterest`);
+    return images.filter(img => img.url);
   }, 10 * 60 * 1000);
 }
 

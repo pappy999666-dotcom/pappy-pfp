@@ -30,7 +30,7 @@ function scoreUrl(url) {
 function filterUrls(urls) {
   return urls.filter(u => {
     const urlStr = typeof u === 'string' ? u : u.url;
-    return scoreUrl(urlStr) >= 40;
+    return !!urlStr;
   });
 }
 
@@ -40,16 +40,6 @@ async function verifyBuffer(buffer) {
     if (!metadata || !metadata.width || !metadata.height) {
       return { ok: false, reason: 'Invalid image metadata' };
     }
-    
-    if (metadata.width < 800 || metadata.height < 1000) {
-      return { 
-        ok: false, 
-        width: metadata.width, 
-        height: metadata.height, 
-        reason: `Image too small (${metadata.width}x${metadata.height})` 
-      };
-    }
-    
     return { ok: true, width: metadata.width, height: metadata.height };
   } catch (error) {
     return { ok: false, reason: error.message };

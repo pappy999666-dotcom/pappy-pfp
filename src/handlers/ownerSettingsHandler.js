@@ -670,16 +670,23 @@ async function addCatPrompt(ctx) {
 }
 async function addCatInput(ctx) {
   clearState(ctx.from.id);
-  const { addCatCommand } = require('../commands/categories');
-  // Reuse the command logic by faking the message text
-  ctx.message = { ...ctx.message, text: '/addcat ' + ctx.message.text };
-  return addCatCommand(ctx);
+  const { CustomCategory } = require('../database/models');
+  const raw = ctx.message.text?.trim();
+  const parts = raw.split('|').map(s => s.trim());
+  if (parts.length < 4) return ctx.reply(ui.error('Invalid Format', 'Need: key | name | emoji | query'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_cats' }]] } });
+  const [key, name, emoji, query, tagsRaw] = parts;
+  const keyClean = key.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
+  const hashtags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  await CustomCategory.findOneAndUpdate({ key: keyClean }, { key: keyClean, name, emoji: emoji || '🖼️', query, hashtags, isActive: true }, { upsert: true });
+  await ctx.reply(ui.success('Category Added', `${emoji || '🖼️'} <b>${name}</b> — <code>${keyClean}</code>`), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_cats' }]] } });
 }
 async function viewSuggestions(ctx) {
-  const { viewSuggestionsCommand } = require('../commands/categories');
-  // Fake a command context
-  ctx.message = { ...ctx.message, text: '/suggestions' };
-  return viewSuggestionsCommand(ctx);
+  const { CategorySuggestion } = require('../database/models');
+  const pending = await CategorySuggestion.find({ status: 'pending' }).sort({ addedAt: -1 }).limit(20);
+  if (!pending.length) return ctx.reply(ui.info('No Pending Suggestions', 'All caught up!'), { parse_mode: 'HTML' });
+  const lines = [`${ui.bold(`Pending Suggestions (${pending.length}):`)}`, ''];
+  for (const s of pending) lines.push(`• ${ui.esc(s.suggestion)}\n  ${ui.italic(`@${ui.esc(s.username || s.telegramId)} · ${new Date(s.addedAt).toLocaleDateString()}`)}`);
+  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
 }
 
 // ── Convenience aliases (used by callbackRouter) ──────────────────────────────
