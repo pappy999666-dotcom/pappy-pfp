@@ -24,15 +24,16 @@ const logger = require('../utils/logger');
 // ── Default settings ──────────────────────────────────────────────────────────
 const DEFAULTS = {
   drops: {
-    enabled:         true,
-    autoDropEnabled: true,
-    intervalHours:   24,
-    staggerMinutes:  20,
-    imagesPerDrop:   10,
-    maxQuality:      true,
-    minWidthPx:      800,
-    minHeightPx:     1000,
-    recentSearches:  [],
+    enabled:          true,
+    autoDropEnabled:  true,
+    intervalHours:    24,
+    staggerMinutes:   20,
+    imagesPerDrop:    10,
+    categoriesPerDay: 0,   // 0 = all active categories, N = post N categories per day
+    maxQuality:       true,
+    minWidthPx:       400,
+    minHeightPx:      500,
+    recentSearches:   [],
   },
   watermark: {
     enabled:  false,

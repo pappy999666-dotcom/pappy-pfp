@@ -279,6 +279,8 @@ async function route(ctx, bot) {
     if (data === 'o_wa_grp_add')                  return ows.waGroupAddPrompt(ctx);
     if (data.startsWith('o_wa_grp_remove:'))      return ows.waGroupRemove(ctx, data.split(':')[1]);
     if (data.startsWith('o_set_cat:'))              return ows.categoryToggle(ctx, data.split(':')[1]);
+    if (data === 'o_cats_enable_all')               return ows.categoryEnableAll(ctx);
+    if (data === 'o_cats_disable_all')              return ows.categoryDisableAll(ctx);
     if (data === 'o_settings_wm_reset')           return ows.wmReset(ctx);
     if (data === 'o_addcat_prompt')               return ows.addCatPrompt(ctx);
     if (data === 'o_suggestions')                 return ows.viewSuggestions(ctx);

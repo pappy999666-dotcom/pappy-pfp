@@ -5,63 +5,62 @@ const sm = require('../config/settingsManager');
 
 let _tgTimer = null;
 let _waTimer = null;
-let _tgCategoryIndex = 0;
-let _waCategoryIndex = 0;
+let _tgIdx = 0;
+let _waIdx = 0;
 
-// ── Telegram Channel Scheduler ────────────────────────────────────────────────
+async function getActiveTgCats() {
+  const catCfg = await sm.getGroup('categories');
+  const disabled = catCfg.disabled || [];
+  return CATEGORIES.filter(c => !disabled.includes(c) && !disabled.includes(`wp_${c}`));
+}
+
+async function getActiveWaCats() {
+  const waCfg = await sm.getGroup('waChannel');
+  if (Array.isArray(waCfg.categories) && waCfg.categories.length) return waCfg.categories;
+  return ['anime','dark_anime','cute_anime','manhwa','aesthetic','amoled',
+          'pappy_digital_art','pappy_cute_pfp','pappy_black_anime','pappy_manhwa_dark'];
+}
+
 async function scheduleNextTgDrop(bot) {
   const drops = await sm.getGroup('drops');
   if (!drops.enabled || !drops.autoDropEnabled) {
-    _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 60 * 60 * 1000); // check again in 1h
+    _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 30 * 60 * 1000);
     return;
   }
+  const cats = await getActiveTgCats();
+  if (!cats.length) { _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 60 * 60 * 1000); return; }
 
-  const cats = CATEGORIES;
-  const intervalHours = drops.intervalHours || 24;
-  const staggerMinutes = drops.staggerMinutes || 20;
-  const dropIntervalMs = Math.floor((intervalHours * 60 * 60 * 1000) / cats.length) + (staggerMinutes * 60 * 1000);
-
-  const category = cats[_tgCategoryIndex % cats.length];
-  logger.info(`Next TG drop: ${category} in ${Math.round(dropIntervalMs / 60000)} minutes`);
+  // categoriesPerDay controls how many drops per day; interval = 24h / categoriesPerDay
+  const perDay = Math.min(cats.length, Math.max(1, parseInt(drops.categoriesPerDay, 10) || cats.length));
+  const intervalMs = Math.floor(24 * 60 * 60 * 1000 / perDay);
+  const category = cats[_tgIdx % cats.length];
+  logger.info(`Next TG drop: ${category} in ${Math.round(intervalMs / 60000)}m (${perDay}/day)`);
 
   _tgTimer = setTimeout(async () => {
-    _tgCategoryIndex++;
-    try {
-      await runCategoryDrop(bot, category);
-    } catch (e) {
-      logger.error(`TG scheduler (${category}): ${e.message}`);
-    }
+    _tgIdx = (_tgIdx + 1) % cats.length;
+    try { await runCategoryDrop(bot, category); }
+    catch (e) { logger.error(`TG drop (${category}): ${e.message}`); }
     scheduleNextTgDrop(bot);
-  }, dropIntervalMs);
+  }, intervalMs);
 }
 
-// ── WhatsApp Channel Scheduler ────────────────────────────────────────────────
 async function scheduleNextWaDrop(bot) {
   const waCfg = await sm.getGroup('waChannel');
-  if (!waCfg.enabled) {
-    _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000);
-    return;
-  }
+  if (!waCfg.enabled) { _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000); return; }
+  const cats = await getActiveWaCats();
+  if (!cats.length) { _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000); return; }
 
-  // Categories for WA — use custom list or fall back to all
-  const cats = (Array.isArray(waCfg.categories) && waCfg.categories.length)
-    ? waCfg.categories
-    : CATEGORIES;
-
-  const timesPerDay = Math.max(1, parseInt(waCfg.timesPerDay, 10) || 2);
-  const intervalMs = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
-
-  const category = cats[_waCategoryIndex % cats.length];
-  logger.info(`Next WA drop: ${category} in ${Math.round(intervalMs / 60000)} minutes`);
+  const perDay = Math.max(1, parseInt(waCfg.timesPerDay, 10) || 2);
+  const intervalMs = Math.floor(24 * 60 * 60 * 1000 / perDay);
+  const category = cats[_waIdx % cats.length];
+  logger.info(`Next WA drop: ${category} in ${Math.round(intervalMs / 60000)}m (${perDay}/day)`);
 
   _waTimer = setTimeout(async () => {
-    _waCategoryIndex++;
+    _waIdx = (_waIdx + 1) % cats.length;
     try {
       await downloadAndStoreWallpapers(category, 12);
       await postWallpapersToWA(category);
-    } catch (e) {
-      logger.error(`WA scheduler (${category}): ${e.message}`);
-    }
+    } catch (e) { logger.error(`WA drop (${category}): ${e.message}`); }
     scheduleNextWaDrop(bot);
   }, intervalMs);
 }
@@ -78,6 +77,7 @@ function stopWallpaperScheduler() {
 
 function restartWallpaperScheduler(bot) {
   stopWallpaperScheduler();
+  _tgIdx = 0; _waIdx = 0;
   startWallpaperScheduler(bot);
 }
 

@@ -60,6 +60,7 @@ async function dropsPanel(ctx) {
       `Images per drop: [${drops.imagesPerDrop}]`,
       `Interval: [${drops.intervalHours} hours]`,
       `Stagger: [${drops.staggerMinutes} minutes]`,
+      `Categories per day: [${drops.categoriesPerDay || 'all'}]`,
       `HD Only: [${drops.maxQuality ? '✅' : '⛔'}]`
     ])
   ].join('\n');
@@ -71,6 +72,7 @@ async function dropsPanel(ctx) {
     [btn('🖼 Set Images/Drop', 'o_set_drop_pr:imagesPerDrop', PRIMARY)],
     [btn('⏱ Set Interval', 'o_set_drop_pr:intervalHours', PRIMARY)],
     [btn('⏳ Set Stagger', 'o_set_drop_pr:staggerMinutes', PRIMARY)],
+    [btn('📅 Categories Per Day', 'o_set_drop_pr:categoriesPerDay', PRIMARY)],
     [{ text: '‹ Back to Settings', callback_data: 'o_settings' }]
   ];
 
@@ -618,46 +620,51 @@ async function waRetriesInput(ctx) {
 async function categoriesPanel(ctx) {
   const c = await settingsManager.getGroup('categories');
   const disabled = c.disabled || [];
-  
-  const K = require('../handlers/keyboards');
-  const catBtns = K.wallpaperCategories().inline_keyboard.flat().filter(b => b.callback_data && b.callback_data.startsWith('wp_'));
-  
-  let text = [
-    ui.screenHeader(config.bot.name, 'Categories'),
-    '',
-    '<blockquote>Toggle wallpaper categories.</blockquote>',
-    ''
-  ];
-  
-  const btns = [];
-  for (let i = 0; i < catBtns.length; i += 2) {
-    const row = [];
-    const b1 = catBtns[i];
-    if (b1) {
-      const isOff1 = disabled.includes(b1.callback_data);
-      row.push(btn(`${isOff1 ? '⛔' : '✅'} ${b1.text.replace(/^[^\w\s]+/, '').trim()}`, `o_set_cat:${b1.callback_data}`, isOff1 ? DANGER : SUCCESS));
-    }
-    const b2 = catBtns[i+1];
-    if (b2) {
-      const isOff2 = disabled.includes(b2.callback_data);
-      row.push(btn(`${isOff2 ? '⛔' : '✅'} ${b2.text.replace(/^[^\w\s]+/, '').trim()}`, `o_set_cat:${b2.callback_data}`, isOff2 ? DANGER : SUCCESS));
-    }
-    if (row.length) btns.push(row);
-  }
-  btns.push([{ text: '‹ Back', callback_data: 'o_settings' }]);
+  const { CATEGORIES, CATEGORY_META } = require('../services/wallpaper');
+  const active = CATEGORIES.filter(cat => !disabled.includes(cat) && !disabled.includes(`wp_${cat}`));
 
-  await ctx.editMessageText(text.join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(()=>{});
+  const text = [
+    ui.screenHeader(config.bot.name, 'Category Manager'),
+    '',
+    `<blockquote>✅ Active: ${active.length} / ${CATEGORIES.length}\n\nTap to toggle on/off. Active categories rotate in daily drop.</blockquote>`,
+  ].join('\n');
+
+  const btns = [];
+  for (let i = 0; i < CATEGORIES.length; i += 2) {
+    const row = [];
+    for (const cat of [CATEGORIES[i], CATEGORIES[i+1]].filter(Boolean)) {
+      const meta = CATEGORY_META[cat] || { emoji: '🖼️', name: cat };
+      const isOff = disabled.includes(cat) || disabled.includes(`wp_${cat}`);
+      row.push(btn(`${isOff ? '⛔' : '✅'} ${meta.emoji} ${meta.name}`, `o_set_cat:${cat}`, isOff ? DANGER : SUCCESS));
+    }
+    btns.push(row);
+  }
+  btns.push([btn('✅ Enable All', 'o_cats_enable_all', SUCCESS), btn('⛔ Disable All', 'o_cats_disable_all', DANGER)]);
+  btns.push([{ text: '‹ Back', callback_data: 'o_settings' }]);
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
 }
 async function categoryToggle(ctx, cat) {
   const c = await settingsManager.getGroup('categories');
   let disabled = c.disabled || [];
-  if (disabled.includes(cat)) {
-    disabled = disabled.filter(x => x !== cat);
+  const key = cat.startsWith('wp_') ? cat.slice(3) : cat;
+  if (disabled.includes(key) || disabled.includes(`wp_${key}`)) {
+    disabled = disabled.filter(x => x !== key && x !== `wp_${key}`);
   } else {
-    disabled.push(cat);
+    disabled.push(key);
   }
   await settingsManager.set('categories.disabled', disabled);
-  await ctx.answerCbQuery('✅ Updated').catch(()=>{});
+  await ctx.answerCbQuery('✅ Updated').catch(() => {});
+  await categoriesPanel(ctx);
+}
+async function categoryEnableAll(ctx) {
+  await settingsManager.set('categories.disabled', []);
+  await ctx.answerCbQuery('✅ All enabled').catch(() => {});
+  await categoriesPanel(ctx);
+}
+async function categoryDisableAll(ctx) {
+  const { CATEGORIES } = require('../services/wallpaper');
+  await settingsManager.set('categories.disabled', [...CATEGORIES]);
+  await ctx.answerCbQuery('⛔ All disabled').catch(() => {});
   await categoriesPanel(ctx);
 }
 
@@ -934,6 +941,6 @@ module.exports = {
   waGroupBtnTextPrompt, waGroupBtnTextInput, waGroupBtnUrlPrompt, waGroupBtnUrlInput,
   waGroupAddPrompt, waGroupAddInput, waGroupRemove,
   handleInput,
-  categoriesPanel, categoryToggle,
+  categoriesPanel, categoryToggle, categoryEnableAll, categoryDisableAll,
   addCatPrompt, addCatInput, viewSuggestions,
 };

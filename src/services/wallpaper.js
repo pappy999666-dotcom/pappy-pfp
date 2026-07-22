@@ -665,55 +665,63 @@ async function postWallpapersToAllTgChannels(bot, category) {
   for (const chatId of chatSet) {
     await optimizeTelegramDiscoverability(bot, chatId, category);
     const batch = wallpapers.slice(0, 10);
-    try {
-      const mediaGroup = batch.map((wp, i) => ({
-        type: 'photo',
-        media: (wp.localPath && fs.existsSync(wp.localPath))
-          ? { source: fs.createReadStream(wp.localPath) }
-          : wp.url,
-        ...(i === 0 ? { caption: captionText, parse_mode: 'HTML' } : {}),
-      }));
 
-      await bot.telegram.sendMediaGroup(chatId, mediaGroup);
-      batch.forEach(wp => posted.push({ chatId, wp }));
-
-      if (keyboard.length) {
-        await sleep(800);
-        await bot.telegram.sendMessage(chatId,
-          `📲 <b>Follow for daily wallpaper drops!</b>
-🔁 Share with friends who love wallpapers`,
-          { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
-        ).catch(() => {});
-      }
-    } catch (albumErr) {
-      let sentCount = 0;
-      for (const wp of batch) {
+    // Build media group — use local file buffers for max quality, URL as fallback
+    const mediaItems = await Promise.all(batch.map(async (wp, i) => {
+      let media;
+      if (wp.localPath && fs.existsSync(wp.localPath)) {
+        // Read as buffer to avoid stream issues with large albums
+        media = { source: fs.readFileSync(wp.localPath) };
+      } else {
+        // Download with Pinterest referer
         try {
-          const source = (wp.localPath && fs.existsSync(wp.localPath))
-            ? { source: fs.createReadStream(wp.localPath) }
-            : wp.url;
-          const isFirst = sentCount === 0;
-          await bot.telegram.sendPhoto(chatId, source, {
-            caption: isFirst ? captionText : undefined,
-            parse_mode: isFirst ? 'HTML' : undefined,
+          const r = await axios.get(wp.url, {
+            responseType: 'arraybuffer', timeout: 15000,
+            headers: { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' },
+          });
+          media = { source: Buffer.from(r.data) };
+        } catch {
+          media = wp.url; // last resort: direct URL
+        }
+      }
+      return {
+        type: 'photo',
+        media,
+        ...(i === 0 ? { caption: captionText, parse_mode: 'HTML' } : {}),
+      };
+    }));
+
+    try {
+      await bot.telegram.sendMediaGroup(chatId, mediaItems);
+      batch.forEach(wp => posted.push({ chatId, wp }));
+    } catch (albumErr) {
+      logger.warn(`Album failed for ${chatId}: ${albumErr.message} — sending individually`);
+      let sentCount = 0;
+      for (const item of mediaItems) {
+        try {
+          await bot.telegram.sendPhoto(chatId, item.media, {
+            caption: sentCount === 0 ? captionText : undefined,
+            parse_mode: sentCount === 0 ? 'HTML' : undefined,
           });
           sentCount++;
-          posted.push({ chatId, wp });
+          posted.push({ chatId, wp: batch[sentCount - 1] });
         } catch (e2) {
           if (e2.message?.includes('kicked') || e2.message?.includes('not found') || e2.message?.includes('deactivated')) {
-            removeChat(chatId);
+            removeChat(chatId); break;
           }
         }
-        await sleep(500);
-      }
-      if (sentCount > 0 && keyboard.length) {
-        await bot.telegram.sendMessage(chatId,
-          `📲 <b>Follow for daily wallpaper drops!</b>
-🔁 Share with friends who love wallpapers`,
-          { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
-        ).catch(() => {});
+        await sleep(400);
       }
     }
+
+    if (keyboard.length) {
+      await sleep(600);
+      await bot.telegram.sendMessage(chatId,
+        `📲 <b>Follow for daily wallpaper drops!</b>\n🔁 Share with friends who love wallpapers`,
+        { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
+      ).catch(() => {});
+    }
+
     logger.info(`Posted ${batch.length} ${category} wallpapers → ${chatId}`);
     await sleep(400);
   }
@@ -958,6 +966,14 @@ async function runCategoryDrop(bot, category) {
   const drops = await sm.getGroup('drops');
   if (!drops.enabled) { logger.info('Drops disabled'); return; }
   if (!drops.autoDropEnabled) { logger.info('Auto-drops disabled'); return; }
+
+  // Check if category is disabled
+  const catCfg = await sm.getGroup('categories');
+  const disabled = catCfg.disabled || [];
+  if (disabled.includes(category) || disabled.includes(`wp_${category}`)) {
+    logger.info(`Category ${category} is disabled, skipping`);
+    return;
+  }
 
   logger.info(`Auto-drop: ${category}`);
   try {
