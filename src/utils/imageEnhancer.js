@@ -16,13 +16,14 @@ const logger = require('./logger');
 
 // ── Quality thresholds ────────────────────────────────────────────────────────
 const QUALITY = {
-  minWidth:       800,
-  minHeight:      1000,
+  minWidth:       400,
+  minHeight:      500,
   idealWidth:     1080,
   idealHeight:    1920,
-  jpegQuality:    92,
-  webpQuality:    88,
-  maxOutputBytes: 10 * 1024 * 1024,  // 10 MB cap
+  upscaleThreshold: 720,  // only upscale if width < this
+  jpegQuality:    95,     // higher quality output
+  webpQuality:    92,
+  maxOutputBytes: 15 * 1024 * 1024,
 };
 
 // ── Check image quality ───────────────────────────────────────────────────────
@@ -36,8 +37,8 @@ async function analyseImage(buffer) {
   const { width = 0, height = 0, format = 'unknown' } = meta;
   const size = buffer.length;
 
-  const isHD       = width >= QUALITY.idealWidth && height >= QUALITY.idealHeight;
-  const needsUpscale = !isHD && (width >= QUALITY.minWidth || height >= QUALITY.minHeight);
+  const isHD         = width >= QUALITY.idealWidth && height >= QUALITY.idealHeight;
+  const needsUpscale  = width < QUALITY.upscaleThreshold;
 
   return { width, height, format, size, isHD, needsUpscale };
 }
@@ -52,7 +53,8 @@ async function upscaleBuffer(buffer, targetWidth = QUALITY.idealWidth) {
     const meta = await sharp(buffer).metadata();
     const { width = 0, height = 0 } = meta;
 
-    if (width >= targetWidth) return buffer;  // Already large enough
+    // Only upscale genuinely small images — don't touch Pinterest originals (736px+)
+    if (width >= QUALITY.upscaleThreshold) return buffer;
 
     const scale = Math.min(3, Math.max(1.5, targetWidth / width));
     const newW = Math.round(width * scale);

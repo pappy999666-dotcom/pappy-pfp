@@ -556,7 +556,16 @@ async function downloadAndStoreWallpapers(category, count = 10) {
 
       if (enhancerCfg && enhancerCfg.enabled) {
         try {
-          buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true });
+          // Only enhance if image actually needs it (small or low quality)
+          const { analyseImage } = require('../utils/imageEnhancer');
+          const analysis = await analyseImage(buffer);
+          if (analysis.needsUpscale || enhancerCfg.sharpen || enhancerCfg.artifacts) {
+            buffer = await enhance(buffer, {
+              upscale: enhancerCfg.upscale && analysis.needsUpscale,
+              sharpen: enhancerCfg.sharpen,
+              artifacts: enhancerCfg.artifacts,
+            });
+          }
         } catch (e) { logger.warn(`Enhance failed: ${e.message}`); }
       }
 
@@ -723,7 +732,17 @@ async function readWallpaperBuffer(wp, enhancerCfg, wmCfg) {
   } else {
     const r = await axios.get(wp.url, { responseType: 'arraybuffer', timeout: 15000, headers: { Referer: 'https://www.pinterest.com/', 'User-Agent': 'Mozilla/5.0' } });
     buffer = Buffer.from(r.data);
-    if (enhancerCfg && enhancerCfg.enabled) buffer = await enhance(buffer, { upscale: true, sharpen: true, artifacts: true }).catch(() => buffer);
+    if (enhancerCfg && enhancerCfg.enabled) {
+      try {
+        const { analyseImage } = require('../utils/imageEnhancer');
+        const analysis = await analyseImage(buffer);
+        buffer = await enhance(buffer, {
+          upscale: enhancerCfg.upscale && analysis.needsUpscale,
+          sharpen: enhancerCfg.sharpen,
+          artifacts: enhancerCfg.artifacts,
+        }).catch(() => buffer);
+      } catch { /* non-fatal */ }
+    }
     if (wmCfg && wmCfg.enabled) buffer = await applyWatermark(buffer, wmCfg).catch(() => buffer);
   }
   return buffer;
