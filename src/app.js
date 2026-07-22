@@ -148,10 +148,16 @@ async function launch() {
     if (!config.ownerIds.includes(String(ctx.from?.id))) return;
     const { isOwnerConnected } = require('./services/ownerWhatsapp');
     if (!isOwnerConnected()) return ctx.reply('❌ Owner WA not connected.', { parse_mode: 'HTML' });
-    const { postWallpapersToWA } = require('./services/wallpaper');
+    const { postWallpapersToWA, downloadAndStoreWallpapers } = require('./services/wallpaper');
+    const sm = require('./config/settingsManager');
     const category = ctx.message?.text?.split(' ')[1]?.trim() || 'anime';
     const wait = await ctx.reply(`⏳ Sending WA drop: <b>${category}</b>...`, { parse_mode: 'HTML' });
     try {
+      // Ensure fresh wallpapers exist
+      await downloadAndStoreWallpapers(category, 12);
+      // Force-enable waChannel for manual drop
+      const waCfg = await sm.getGroup('waChannel');
+      if (!waCfg.enabled) await sm.set('waChannel.enabled', true);
       const result = await postWallpapersToWA(category);
       await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
         `✅ <b>WA Drop Sent</b>\nCategory: <b>${category}</b> · <b>${result.length}</b> wallpapers → channel + group forward`,

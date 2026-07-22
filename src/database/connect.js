@@ -18,7 +18,7 @@ async function connectDB() {
   if (!uri || uri.includes('localhost') || uri.includes('127.0.0.1')) {
     if (uri) {
       try {
-        await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+        await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000, bufferTimeoutMS: 30000 });
         connected = true;
         logger.info(`MongoDB connected -> ${uri}`);
         return;
@@ -38,7 +38,7 @@ async function connectDB() {
   }
 
   try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000, bufferTimeoutMS: 30000 });
     connected = true;
     const display = uri.includes('@') ? uri.split('@').pop() : uri;
     logger.info(`MongoDB connected -> ${display}`);
