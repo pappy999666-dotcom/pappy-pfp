@@ -12,6 +12,7 @@ const { enhance } = require('../utils/imageEnhancer');
 const { applyWatermark } = require('../utils/watermark');
 const sm = require('../config/settingsManager');
 const { searchImages: pinterestSearch } = require('./pinterest');
+const { buildEditorialCaption } = require('./editorialEngine');
 const ui = require('../utils/ui');
 
 const CATEGORIES = [
@@ -782,27 +783,15 @@ async function fetchWyrQuestion() {
 
 async function buildWaCaption(category, count) {
   const profile = pickEditorialProfile(category);
-  const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6).map(t => '#' + t).join(' ');
-  const wyr = await fetchWyrQuestion();
-  const countWord = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'][count] || String(count);
-  return [
-    `২ৎ ── ✶ ${profile.name.toUpperCase()} DROP ✶ ── ২ৎ`,
-    `♥ *${countWord} HD Wallpapers*`,
-    `${profile.mood}.`,
-    ``,
-    `🎀⋆ Save your favorites and use them as your wallpaper or WhatsApp PFP.`,
-    ``,
-    `╭─ 🌐 *Full-Size WhatsApp PFP* ─╮`,
-    `│ ✶ No Crop`,
-    `│ ✶ Full Quality`,
-    `│ ✶ One-Tap Upload`,
-    `│ ${config.webUrl}`,
-    `╰────────────────────╯`,
-    ``,
+  const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6);
+  return buildEditorialCaption({
+    category,
+    categoryName: profile.name,
+    count,
+    mood: profile.mood,
     hashtags,
-    ``,
-    wyr ? `🎲 *WYR:* ${wyr}` : '',
-  ].filter(Boolean).join('\n');
+    webUrl: config.webUrl,
+  });
 }
 
 async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
