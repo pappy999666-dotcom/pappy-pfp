@@ -846,14 +846,14 @@ async function postWallpapersToWA(category) {
   const waChannels = await Channel.find({ isActive: true, platform: 'whatsapp' });
   if (!waChannels.length) return [];
 
-  const dropsCfg = await sm.getGroup('drops');
-  const dropCount = Math.min(Math.max(parseInt(dropsCfg.imagesPerDrop, 10) || 10, 2), 10);
+  const waChCfg = await sm.getGroup('waChannel');
+  if (!waChCfg.enabled) return [];
+
+  const dropCount = Math.min(Math.max(parseInt(waChCfg.imagesPerDrop, 10) || 10, 2), 10);
   const wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(dropCount);
   if (!wallpapers.length) return [];
 
   const sock = getOwnerSock();
-  const waCfg = await sm.getGroup('whatsapp');
-  const profile = pickEditorialProfile(category);
   const caption = await buildWaCaption(category, wallpapers.length);
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
@@ -867,54 +867,67 @@ async function postWallpapersToWA(category) {
     if (inviteMatch && !String(jid).includes('@')) {
       try {
         const nlMeta = await sock.newsletterMetadata('invite', inviteMatch[1]);
-        if (nlMeta && nlMeta.id) {
+        if (nlMeta?.id) {
           jid = nlMeta.id;
           await Channel.findByIdAndUpdate(channel._id, { chatId: jid });
-          logger.info('Resolved newsletter JID: ' + jid);
         }
-      } catch (e) { logger.warn('Could not resolve newsletter JID for ' + jid + ': ' + e.message); }
+      } catch (e) { logger.warn('Could not resolve newsletter JID: ' + e.message); }
     }
 
     await sendWaDailyDrop(sock, jid, wallpapers, caption, []);
     posted.push(...wallpapers);
-    logger.info('WA drop: sent album of ' + wallpapers.length + ' ' + category + ' wallpapers to ' + jid);
+    logger.info('WA channel drop: ' + wallpapers.length + ' ' + category + ' wallpapers → ' + jid);
+  }
 
-    if (waCfg.forwardingEnabled && Array.isArray(waCfg.forwardingDestinations)) {
-      const timesPerDay = Math.max(1, parseInt(waCfg.forwardTimesPerDay, 10) || 1);
-      const cooldownMs = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
-      const now = Date.now();
-      const lastSent = waCfg.forwardLastSent || {};
+  // WA Group forward
+  const waGrpCfg = await sm.getGroup('waGroup');
+  if (waGrpCfg.enabled && Array.isArray(waGrpCfg.destinations) && waGrpCfg.destinations.length) {
+    const timesPerDay = Math.max(1, parseInt(waGrpCfg.timesPerDay, 10) || 2);
+    const cooldownMs = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
+    const now = Date.now();
+    const lastSent = waGrpCfg.lastSent || {};
+    const profile = pickEditorialProfile(category);
 
-      // Build button to attach to group forwards
-      const channelUrl = waCfg.forwardButtonUrl || config.webUrl;
-      const channelBtnText = waCfg.forwardButtonText || '📢 Join Our WA Channel';
-
-      for (const dest of waCfg.forwardingDestinations.filter(Boolean)) {
-        const lastTs = lastSent[dest] || 0;
-        if (now - lastTs < cooldownMs) {
-          logger.info(`WA forward skip ${dest}: cooldown (${Math.round((cooldownMs - (now - lastTs)) / 60000)}m left)`);
-          continue;
-        }
-
-        const mentions = await getGroupMentions(sock, dest);
-        const groupCaption = [
-          `${profile.emoji} *${profile.name.toUpperCase()} DROP* ${profile.emoji}`,
-          `✦ *${wallpapers.length} HD Wallpapers* · Fresh today`,
-          `_${profile.mood}_`,
-          ``,
-          `🔥 Save your faves · set as wallpaper or PFP`,
-          mentions.length ? `👀 ${mentions.slice(0, 5).map(m => '@' + m.split('@')[0]).join(' ')} check these out!` : '',
-          ``,
-          `${channelBtnText}`,
-          `${channelUrl}`,
-        ].filter(Boolean).join('\n');
-        await sendWaDailyDrop(sock, dest, wallpapers, groupCaption, mentions);
-
-        // Update last sent timestamp
-        lastSent[dest] = now;
-        await sm.set('whatsapp.forwardLastSent', lastSent).catch(() => {});
-        await sleep(900);
+    for (const dest of waGrpCfg.destinations.filter(Boolean)) {
+      const lastTs = lastSent[dest] || 0;
+      if (now - lastTs < cooldownMs) {
+        logger.info(`WA group skip ${dest}: cooldown (${Math.round((cooldownMs - (now - lastTs)) / 60000)}m left)`);
+        continue;
       }
+
+      const mentions = waGrpCfg.mentionAll ? await getGroupMentions(sock, dest) : [];
+
+      // Build group caption
+      const grpCaption = [
+        `২ৎ ── ✶ ${profile.name.toUpperCase()} DROP ✶ ── ২ৎ`,
+        `♥ *${wallpapers.length} HD Wallpapers* · Fresh today`,
+        `_${profile.mood}_`,
+        ``,
+        mentions.length ? `👀 ${mentions.slice(0, 5).map(m => '@' + m.split('@')[0]).join(' ')} check these out!` : '',
+        `🔥 Save your faves · set as wallpaper or PFP`,
+      ].filter(Boolean).join('\n');
+
+      // Send images first
+      await sendWaDailyDrop(sock, dest, wallpapers, grpCaption, mentions);
+
+      // Send button message separately (Baileys buttonsMessage for groups)
+      const btnText = waGrpCfg.buttonText || '📢 Join Our Channel';
+      const btnUrl  = waGrpCfg.buttonUrl  || config.webUrl;
+      try {
+        await sock.sendMessage(dest, {
+          text: `🌐 *${btnText}*\n${btnUrl}`,
+          footer: config.bot.name || 'PAPPY PFP',
+          buttons: [{ buttonId: 'open_link', buttonText: { displayText: btnText }, type: 1 }],
+          headerType: 1,
+        });
+      } catch {
+        // Fallback: plain text with link if buttons not supported
+        await sock.sendMessage(dest, { text: `${btnText}\n${btnUrl}` }).catch(() => {});
+      }
+
+      lastSent[dest] = now;
+      await sm.set('waGroup.lastSent', lastSent).catch(() => {});
+      await sleep(1200);
     }
   }
 

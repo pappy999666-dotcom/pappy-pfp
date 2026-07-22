@@ -38,6 +38,8 @@ async function settingsMenu(ctx) {
     [btn('🔧 Maintenance', 'o_settings_maint', maint.enabled ? DANGER : PRIMARY), btn('📋 Logging', 'o_settings_log', PRIMARY)],
     [btn('📤 Uploads', 'o_settings_uploads', PRIMARY), btn('⏱ Cooldowns', 'o_settings_cooldowns', PRIMARY)],
     [btn('⏰ Scheduler', 'o_settings_scheduler', PRIMARY), btn('💬 WA Channel', 'o_settings_wa', PRIMARY)],
+    [btn('📱 WA Drop', 'o_settings_wa_drop', PRIMARY), btn('👥 WA Groups', 'o_settings_wa_group', PRIMARY)],
+    [btn('📱 WA Drop Settings', 'o_settings_wa_drop', PRIMARY), btn('👥 WA Group Drop', 'o_settings_wa_group', PRIMARY)],
     [btn('📁 Categories', 'o_settings_cats', PRIMARY), btn('➕ Add Category', 'o_addcat_prompt', SUCCESS)],
     [btn('💡 View Suggestions', 'o_suggestions', PRIMARY)],
     [{ text: '‹ Back to Owner Panel', callback_data: 'owner' }]
@@ -659,6 +661,197 @@ async function categoryToggle(ctx, cat) {
   await categoriesPanel(ctx);
 }
 
+// ── WA Drop Settings ─────────────────────────────────────────────
+async function waDropPanel(ctx) {
+  const w = await settingsManager.getGroup('waChannel');
+  const { CATEGORIES } = require('../services/wallpaper');
+  const cats = (Array.isArray(w.categories) && w.categories.length) ? w.categories : ['all categories'];
+  const text = [
+    ui.screenHeader(config.bot.name, 'WA Channel Drop Settings'),
+    '',
+    ui.blockquote([
+      `Enabled: [${w.enabled ? '✅' : '⛔'}]`,
+      `Times per day: [${w.timesPerDay || 2}x]`,
+      `Images per drop: [${w.imagesPerDrop || 10}]`,
+      `Categories: [${cats.join(', ').slice(0, 60)}${cats.length > 3 ? '...' : ''}]`,
+    ])
+  ].join('\n');
+  const btns = [
+    [btn(w.enabled ? '⛔ Disable WA Drop' : '✅ Enable WA Drop', 'o_wa_drop_toggle', w.enabled ? DANGER : SUCCESS)],
+    [btn('🔢 Set Times Per Day', 'o_wa_drop_times', PRIMARY)],
+    [btn('🖼 Set Images Per Drop', 'o_wa_drop_images', PRIMARY)],
+    [btn('📁 Set Categories', 'o_wa_drop_cats', PRIMARY)],
+    [{ text: '‹ Back', callback_data: 'o_settings' }],
+  ];
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
+}
+async function waDropToggle(ctx) {
+  await settingsManager.toggle('waChannel.enabled');
+  await ctx.answerCbQuery('✅ Updated').catch(() => {});
+  await waDropPanel(ctx);
+}
+async function waDropTimesPrompt(ctx) {
+  const w = await settingsManager.getGroup('waChannel');
+  ctx.setState({ step: 'o_settings_wa_drop_times' });
+  await ctx.editMessageText(
+    `<b>WA Drop Times Per Day</b>\n\nCurrent: ${w.timesPerDay || 2}x\n\nSend a number (1–24):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_drop' }]] } }
+  ).catch(() => {});
+}
+async function waDropTimesInput(ctx) {
+  clearState(ctx.from.id);
+  const val = Math.min(24, Math.max(1, parseInt(ctx.message.text) || 2));
+  await settingsManager.set('waChannel.timesPerDay', val);
+  await ctx.reply(`✅ WA drop set to ${val}x per day`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_drop' }]] } });
+}
+async function waDropImagesPrompt(ctx) {
+  const w = await settingsManager.getGroup('waChannel');
+  ctx.setState({ step: 'o_settings_wa_drop_images' });
+  await ctx.editMessageText(
+    `<b>WA Images Per Drop</b>\n\nCurrent: ${w.imagesPerDrop || 10}\n\nSend a number (1–10):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_drop' }]] } }
+  ).catch(() => {});
+}
+async function waDropImagesInput(ctx) {
+  clearState(ctx.from.id);
+  const val = Math.min(10, Math.max(1, parseInt(ctx.message.text) || 10));
+  await settingsManager.set('waChannel.imagesPerDrop', val);
+  await ctx.reply(`✅ WA images per drop set to ${val}`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_drop' }]] } });
+}
+async function waDropCatsPrompt(ctx) {
+  ctx.setState({ step: 'o_settings_wa_drop_cats' });
+  await ctx.editMessageText([
+    ui.screenHeader(config.bot.name, 'WA Drop Categories'),
+    '',
+    '<blockquote>Send comma-separated category keys, or send <code>all</code> to use all categories.</blockquote>',
+    '<blockquote expandable>Examples:\nanime, dark_anime, manhwa, cyberpunk\n\nOr just: all</blockquote>',
+  ].join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_drop' }]] } }).catch(() => {});
+}
+async function waDropCatsInput(ctx) {
+  clearState(ctx.from.id);
+  const raw = ctx.message.text?.trim();
+  if (raw.toLowerCase() === 'all') {
+    await settingsManager.set('waChannel.categories', []);
+    return ctx.reply('✅ WA drop will use all categories', { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_drop' }]] } });
+  }
+  const { CATEGORIES } = require('../services/wallpaper');
+  const cats = raw.split(',').map(s => s.trim().toLowerCase()).filter(s => CATEGORIES.includes(s));
+  if (!cats.length) return ctx.reply(ui.error('Invalid', 'No valid categories found. Check spelling.'), { parse_mode: 'HTML' });
+  await settingsManager.set('waChannel.categories', cats);
+  await ctx.reply(`✅ WA categories set: ${cats.join(', ')}`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_drop' }]] } });
+}
+
+// ── WA Group Drop Settings ──────────────────────────────────────
+async function waGroupPanel(ctx) {
+  const w = await settingsManager.getGroup('waGroup');
+  const dests = w.destinations || [];
+  const text = [
+    ui.screenHeader(config.bot.name, 'WA Group Drop Settings'),
+    '',
+    ui.blockquote([
+      `Enabled: [${w.enabled ? '✅' : '⛔'}]`,
+      `Times per day: [${w.timesPerDay || 2}x]`,
+      `Mention all: [${w.mentionAll ? '✅' : '⛔'}]`,
+      `Button text: [${w.buttonText || '📢 Join Our Channel'}]`,
+      `Button URL: [${w.buttonUrl || 'Not set'}]`,
+      `Groups: [${dests.length}]`,
+    ]),
+    '',
+    dests.length
+      ? '<blockquote expandable>' + dests.map((j, i) => `${i + 1}. ${ui.esc(j)}`).join('\n') + '</blockquote>'
+      : '<blockquote>No groups added yet.</blockquote>',
+  ].join('\n');
+  const btns = [
+    [btn(w.enabled ? '⛔ Disable Group Drop' : '✅ Enable Group Drop', 'o_wa_grp_toggle', w.enabled ? DANGER : SUCCESS)],
+    [btn(w.mentionAll ? '⛔ Disable @Mentions' : '✅ Enable @Mentions', 'o_wa_grp_mention', w.mentionAll ? DANGER : SUCCESS)],
+    [btn('🔢 Times Per Day', 'o_wa_grp_times', PRIMARY)],
+    [btn('✏️ Button Text', 'o_wa_grp_btn_text', PRIMARY)],
+    [btn('🔗 Button URL', 'o_wa_grp_btn_url', PRIMARY)],
+    [btn('➕ Add Group JID', 'o_wa_grp_add', SUCCESS)],
+    ...dests.map((j, i) => [btn(`🗑 Remove ${i + 1}: ${j.slice(0, 20)}...`, `o_wa_grp_remove:${i}`, DANGER)]),
+    [{ text: '‹ Back', callback_data: 'o_settings' }],
+  ];
+  await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: btns } }).catch(() => {});
+}
+async function waGroupToggle(ctx) {
+  await settingsManager.toggle('waGroup.enabled');
+  await ctx.answerCbQuery('✅ Updated').catch(() => {});
+  await waGroupPanel(ctx);
+}
+async function waGroupMentionToggle(ctx) {
+  await settingsManager.toggle('waGroup.mentionAll');
+  await ctx.answerCbQuery('✅ Updated').catch(() => {});
+  await waGroupPanel(ctx);
+}
+async function waGroupTimesPrompt(ctx) {
+  const w = await settingsManager.getGroup('waGroup');
+  ctx.setState({ step: 'o_settings_wa_grp_times' });
+  await ctx.editMessageText(
+    `<b>WA Group Drop Times Per Day</b>\n\nCurrent: ${w.timesPerDay || 2}x\n\nSend a number (1–24):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_group' }]] } }
+  ).catch(() => {});
+}
+async function waGroupTimesInput(ctx) {
+  clearState(ctx.from.id);
+  const val = Math.min(24, Math.max(1, parseInt(ctx.message.text) || 2));
+  await settingsManager.set('waGroup.timesPerDay', val);
+  await ctx.reply(`✅ Group drop set to ${val}x per day`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_group' }]] } });
+}
+async function waGroupBtnTextPrompt(ctx) {
+  const w = await settingsManager.getGroup('waGroup');
+  ctx.setState({ step: 'o_settings_wa_grp_btn_text' });
+  await ctx.editMessageText(
+    `<b>Group Drop Button Text</b>\n\nCurrent: ${w.buttonText || '📢 Join Our Channel'}\n\nSend new button text (max 30 chars):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_group' }]] } }
+  ).catch(() => {});
+}
+async function waGroupBtnTextInput(ctx) {
+  clearState(ctx.from.id);
+  const val = ctx.message.text?.trim().slice(0, 30);
+  await settingsManager.set('waGroup.buttonText', val);
+  await ctx.reply(`✅ Button text: ${val}`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_group' }]] } });
+}
+async function waGroupBtnUrlPrompt(ctx) {
+  const w = await settingsManager.getGroup('waGroup');
+  ctx.setState({ step: 'o_settings_wa_grp_btn_url' });
+  await ctx.editMessageText(
+    `<b>Group Drop Button URL</b>\n\nCurrent: ${w.buttonUrl || 'Not set'}\n\nSend the URL (WA channel link or Telegram link):`,
+    { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_group' }]] } }
+  ).catch(() => {});
+}
+async function waGroupBtnUrlInput(ctx) {
+  clearState(ctx.from.id);
+  const val = ctx.message.text?.trim();
+  await settingsManager.set('waGroup.buttonUrl', val);
+  await ctx.reply(`✅ Button URL set`, { reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_group' }]] } });
+}
+async function waGroupAddPrompt(ctx) {
+  ctx.setState({ step: 'o_settings_wa_grp_add' });
+  await ctx.editMessageText([
+    ui.screenHeader(config.bot.name, 'Add WA Group'),
+    '',
+    '<blockquote>Send a WhatsApp group JID ending in <code>@g.us</code>.</blockquote>',
+    '<blockquote expandable>Use /jid to list all groups the owner WA is in.</blockquote>',
+  ].join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'o_settings_wa_group' }]] } }).catch(() => {});
+}
+async function waGroupAddInput(ctx) {
+  clearState(ctx.from.id);
+  const jid = ctx.message.text?.trim();
+  if (!jid?.endsWith('@g.us')) return ctx.reply(ui.error('Invalid JID', 'Must end with <code>@g.us</code>'), { parse_mode: 'HTML' });
+  const w = await settingsManager.getGroup('waGroup');
+  const dests = Array.from(new Set([...(w.destinations || []), jid]));
+  await settingsManager.set('waGroup.destinations', dests);
+  await ctx.reply(ui.success('Group Added', jid), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '‹ Back', callback_data: 'o_settings_wa_group' }]] } });
+}
+async function waGroupRemove(ctx, index) {
+  const w = await settingsManager.getGroup('waGroup');
+  const dests = w.destinations || [];
+  dests.splice(Number(index), 1);
+  await settingsManager.set('waGroup.destinations', dests);
+  await ctx.answerCbQuery('✅ Removed').catch(() => {});
+  return waGroupPanel(ctx);
+}
+
 // ── Custom Category (inline) ─────────────────────────────────────────────
 async function addCatPrompt(ctx) {
   ctx.setState({ step: 'o_settings_addcat' });
@@ -712,6 +905,13 @@ async function handleInput(ctx, _bot) {
   if (step === 'o_settings_wa_fwd_times')       return waForwardTimesInput(ctx);
   if (step === 'o_settings_wa_fwd_btn_text')    return waForwardBtnTextInput(ctx);
   if (step === 'o_settings_wa_fwd_btn_url')     return waForwardBtnUrlInput(ctx);
+  if (step === 'o_settings_wa_drop_times')      return waDropTimesInput(ctx);
+  if (step === 'o_settings_wa_drop_images')     return waDropImagesInput(ctx);
+  if (step === 'o_settings_wa_drop_cats')       return waDropCatsInput(ctx);
+  if (step === 'o_settings_wa_grp_times')       return waGroupTimesInput(ctx);
+  if (step === 'o_settings_wa_grp_btn_text')    return waGroupBtnTextInput(ctx);
+  if (step === 'o_settings_wa_grp_btn_url')     return waGroupBtnUrlInput(ctx);
+  if (step === 'o_settings_wa_grp_add')         return waGroupAddInput(ctx);
   if (step === 'o_settings_addcat')             return addCatInput(ctx);
 }
 
@@ -729,6 +929,10 @@ module.exports = {
   waPanel, waToggle, waAutoToggle, waForwardPanel, waForwardAddPrompt, waForwardAddInput, waForwardRemove,
   waForwardTimesPrompt, waForwardTimesInput, waForwardBtnTextPrompt, waForwardBtnTextInput, waForwardBtnUrlPrompt, waForwardBtnUrlInput,
   waSetRetries, waRetriesInput, waSetJoinLinkPrompt, waSetJoinLinkInput,
+  waDropPanel, waDropToggle, waDropTimesPrompt, waDropTimesInput, waDropImagesPrompt, waDropImagesInput, waDropCatsPrompt, waDropCatsInput,
+  waGroupPanel, waGroupToggle, waGroupMentionToggle, waGroupTimesPrompt, waGroupTimesInput,
+  waGroupBtnTextPrompt, waGroupBtnTextInput, waGroupBtnUrlPrompt, waGroupBtnUrlInput,
+  waGroupAddPrompt, waGroupAddInput, waGroupRemove,
   handleInput,
   categoriesPanel, categoryToggle,
   addCatPrompt, addCatInput, viewSuggestions,

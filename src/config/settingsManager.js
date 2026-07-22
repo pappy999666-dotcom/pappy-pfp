@@ -86,6 +86,22 @@ const DEFAULTS = {
     forwardingEnabled:      false,
     forwardingDestinations: [],
   },
+  waChannel: {
+    enabled:        true,
+    categories:     [],          // empty = use all CATEGORIES
+    timesPerDay:    2,           // how many drops per day (evenly spaced)
+    imagesPerDrop:  10,
+    lastDropTimes:  {},          // { category: timestamp }
+  },
+  waGroup: {
+    enabled:              false,
+    destinations:         [],    // @g.us JIDs
+    timesPerDay:          2,     // morning + night
+    buttonText:           '📢 Join Our Channel',
+    buttonUrl:            '',
+    lastSent:             {},    // { jid: timestamp }
+    mentionAll:           true,
+  },
   categories: {
     // Which wallpaper categories are active (all on by default)
     disabled: [],
