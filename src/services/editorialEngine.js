@@ -65,51 +65,62 @@ const CTAS = [
 const TG_REACTIONS = ['🤣','❤️','👍','👎','🔥','🥰','👏','😁','🤔','🤯','😱','🤬','😢','🎉','🤩','🤮','💩','🙏','👌','🕊️','🤡','🤭','😍','🐋','❤️‍🔥','🌚','🌭','💯','⚡','🍌','🏆','💔','😐','😑','🍓','🍾','💋','😈','😴','😭','🤓','👻','👀','🎃','🙈','😇','😨','🤝','✍️','🫠','👉','👴','🎄','⛄','💅','😜','🗿','🆒','🩷','🙊','🦄','😘','💊','😎','👾','🤷','🙆','🙋','😡'];
 
 const STATIC_GAMES = {
+  // Title/desc emojis = anything expressive
+  // React options = Telegram default reactions only
   anime: [
-    '🎲 *WOULD YOU RATHER...?*\n❤️ Soft pastel anime aesthetic forever\nOR\n🔥 Dark moody anime aesthetic forever\nReact ❤️ or 🔥',
-    '🥰 *PICK ONE*\n❤️ Cute & Soft\n🔥 Cold & Mysterious\n😍 Elegant & Graceful\nReact with one emoji.',
-    '🏆 *RATE TODAY\'S DROP*\n👍 Good\n🔥 Fire\n🤩 Saving all of them\nReact honestly.',
-    '🤔 *MAIN CHARACTER ENERGY?*\n🥰 Soft heroine\n😈 Fierce villain\n😎 Cool loner\nReact with your energy.',
+    '🌸✨ *WOULD YOU RATHER...?*\n❤️ Soft pastel anime aesthetic forever\nOR\n🔥 Dark moody anime aesthetic forever\nReact ❤️ or 🔥',
+    '🎀💫 *PICK ONE*\n❤️ Cute & Soft\n🔥 Cold & Mysterious\n😍 Elegant & Graceful\nReact with one emoji.',
+    '🌟 *RATE TODAY\'S DROP*\n👍 Good\n🔥 Fire\n🤩 Saving all of them\nReact honestly.',
+    '🎭✨ *MAIN CHARACTER ENERGY?*\n🥰 Soft heroine\n😈 Fierce villain\n😎 Cool loner\nReact with your energy.',
+    '🌸 *SAVE OR SKIP?*\n💯 Saving all\n👍 Maybe one\n🤔 Not today\nReact honestly.',
   ],
   dark_anime: [
-    '🎲 *WOULD YOU RATHER...?*\n💔 Black-and-red anime room forever\nOR\n🌚 Rainy anime city at midnight forever\nReact 💔 or 🌚',
-    '😱 *YOUR DARK AESTHETIC?*\n🔥 Black & Red\n💔 Dark Purple\n🌚 Pure Black\nReact with your vibe.',
-    '🤔 *HOW DARK IS YOUR AESTHETIC?*\n👍 Slightly dark\n🔥 Full dark mode\n😈 I live in the shadows\nReact honestly.',
-    '😈 *PICK YOUR VILLAIN ERA*\n😈 Cold & Ruthless\n🌚 Mysterious & Silent\n💔 Broken & Dangerous\nReact with one emoji.',
+    '🖤🌙 *WOULD YOU RATHER...?*\n💔 Black-and-red anime room forever\nOR\n🌚 Rainy anime city at midnight forever\nReact 💔 or 🌚',
+    '🕯️ *YOUR DARK AESTHETIC?*\n🔥 Black & Red\n💔 Dark Purple\n🌚 Pure Black\nReact with your vibe.',
+    '🌑 *HOW DARK IS YOUR AESTHETIC?*\n👍 Slightly dark\n🔥 Full dark mode\n😈 I live in the shadows\nReact honestly.',
+    '⚰️✨ *PICK YOUR VILLAIN ERA*\n😈 Cold & Ruthless\n🌚 Mysterious & Silent\n💔 Broken & Dangerous\nReact with one emoji.',
   ],
   cute_anime: [
-    '🎲 *WOULD YOU RATHER...?*\n🥰 Kawaii pastel room forever\nOR\n❤️ Cozy lofi setup forever\nReact 🥰 or ❤️',
-    '🩷 *PICK YOUR AESTHETIC*\n🥰 Candy cute\n❤️ Soft pink\n😇 Cloud aesthetic\nReact with your pick.',
-    '💯 *SAVING ANY?*\n💯 Yes, all of them\n👍 Maybe one\n🤔 Not today\nReact honestly.',
-    '🤩 *WHICH VIBE ARE YOU?*\n🥰 Sweet & Soft\n😁 Bubbly & Fun\n😇 Pure & Innocent\nReact with one emoji.',
+    '🌸🍬 *WOULD YOU RATHER...?*\n🥰 Kawaii pastel room forever\nOR\n❤️ Cozy lofi setup forever\nReact 🥰 or ❤️',
+    '🎀🩷 *PICK YOUR AESTHETIC*\n🥰 Candy cute\n❤️ Soft pink\n😇 Cloud aesthetic\nReact with your pick.',
+    '☁️✨ *SAVING ANY?*\n💯 Yes, all of them\n👍 Maybe one\n🤔 Not today\nReact honestly.',
+    '🌷💕 *WHICH VIBE ARE YOU?*\n🥰 Sweet & Soft\n😁 Bubbly & Fun\n😇 Pure & Innocent\nReact with one emoji.',
   ],
   manhwa: [
-    '🎲 *WOULD YOU RATHER...?*\n❤️ Main lead in a romance manhwa\nOR\n🔥 Main lead in an action manhwa\nReact ❤️ or 🔥',
-    '👑 *YOUR TYPE?*\n🔥 Cold & Powerful\n❤️ Sweet & Caring\n😍 Mysterious\n🤩 All of the above\nReact with one emoji.',
-    '😱 *WHICH MANHWA ROLE?*\n😈 The cold CEO\n❤️ The soft romantic\n🔥 The powerful warrior\n🌚 The mysterious villain\nReact with your role.',
+    '👑🌹 *WOULD YOU RATHER...?*\n❤️ Main lead in a romance manhwa\nOR\n🔥 Main lead in an action manhwa\nReact ❤️ or 🔥',
+    '💎✨ *YOUR TYPE?*\n🔥 Cold & Powerful\n❤️ Sweet & Caring\n😍 Mysterious\n🤩 All of the above\nReact with one emoji.',
+    '🌸⚔️ *WHICH MANHWA ROLE?*\n😈 The cold CEO\n❤️ The soft romantic\n🔥 The powerful warrior\n🌚 The mysterious villain\nReact with your role.',
   ],
   cyberpunk: [
-    '🎲 *WOULD YOU RATHER...?*\n⚡ Neon cyberpunk city forever\nOR\n❤️ Peaceful nature village forever\nReact ⚡ or ❤️',
-    '⚡ *YOUR CYBERPUNK VIBE?*\n🔥 Neon & Dangerous\n😍 Aesthetic & Clean\n💯 Both\nReact with your vibe.',
+    '🌃⚡ *WOULD YOU RATHER...?*\n⚡ Neon cyberpunk city forever\nOR\n❤️ Peaceful nature village forever\nReact ⚡ or ❤️',
+    '🔮💜 *YOUR CYBERPUNK VIBE?*\n🔥 Neon & Dangerous\n😍 Aesthetic & Clean\n💯 Both\nReact with your vibe.',
   ],
   amoled: [
-    '🎲 *WOULD YOU RATHER...?*\n🌚 Pure black phone forever\nOR\n🔥 Neon dark aesthetic forever\nReact 🌚 or 🔥',
-    '🌚 *DARK MODE LEVEL?*\n👍 Always dark mode\n🔥 Dark + neon accents\n💯 Black everything\nReact honestly.',
+    '⬛🌑 *WOULD YOU RATHER...?*\n🌚 Pure black phone forever\nOR\n🔥 Neon dark aesthetic forever\nReact 🌚 or 🔥',
+    '🖤✨ *DARK MODE LEVEL?*\n👍 Always dark mode\n🔥 Dark + neon accents\n💯 Black everything\nReact honestly.',
   ],
   fantasy: [
-    '🎲 *WOULD YOU RATHER...?*\n🕊️ Be an angel with wings\nOR\n😈 Be a demon with power\nReact 🕊️ or 😈',
-    '🤩 *PICK YOUR FANTASY ROLE*\n🕊️ Angel\n😈 Demon\n🏆 Royal\n🔥 Dragon Rider\nReact with one emoji.',
+    '🪽😈 *WOULD YOU RATHER...?*\n🕊️ Be an angel with wings\nOR\n😈 Be a demon with power\nReact 🕊️ or 😈',
+    '🌟👑 *PICK YOUR FANTASY ROLE*\n🕊️ Angel\n😈 Demon\n🏆 Royal\n🔥 Dragon Rider\nReact with one emoji.',
   ],
   boys: [
-    '🎲 *WOULD YOU RATHER...?*\n❤️ Soft & caring anime boy\nOR\n🔥 Cold & powerful anime boy\nReact ❤️ or 🔥',
-    '😍 *YOUR HUSBANDO TYPE?*\n❤️ Sweet & Gentle\n🔥 Cold & Intense\n😎 Cool & Mysterious\n🤩 Chaotic & Fun\nReact with one emoji.',
+    '🗡️💙 *WOULD YOU RATHER...?*\n❤️ Soft & caring anime boy\nOR\n🔥 Cold & powerful anime boy\nReact ❤️ or 🔥',
+    '👑✨ *YOUR HUSBANDO TYPE?*\n❤️ Sweet & Gentle\n🔥 Cold & Intense\n😎 Cool & Mysterious\n🤩 Chaotic & Fun\nReact with one emoji.',
+  ],
+  japanese: [
+    '⛩️🌸 *WOULD YOU RATHER...?*\n❤️ Live in a sakura-filled anime village\nOR\n🔥 Live in neon Tokyo at night\nReact ❤️ or 🔥',
+    '🎋✨ *YOUR JAPAN AESTHETIC?*\n🥰 Soft & Zen\n🔥 Neon & Modern\n😍 Traditional & Elegant\nReact with your vibe.',
+  ],
+  aesthetic: [
+    '✨💅 *WOULD YOU RATHER...?*\n❤️ Soft pastel aesthetic forever\nOR\n🔥 Dark moody aesthetic forever\nReact ❤️ or 🔥',
+    '🌈🎨 *YOUR AESTHETIC VIBE?*\n🥰 Soft & Dreamy\n🔥 Bold & Edgy\n😍 Clean & Minimal\nReact with one emoji.',
   ],
   default: [
-    '🎲 *WOULD YOU RATHER...?*\n👍 Have 100 wallpapers you love\nOR\n😍 Have 1 perfect wallpaper forever\nReact 👍 or 😍',
-    '🏆 *RATE TODAY\'S DROP*\n👍 Good\n🔥 Fire\n🤩 Best drop ever\nReact honestly.',
-    '🔥 *REACT WITH YOUR VIBE*\n🔥 Love it\n😍 Obsessed\n💯 Saving all\n🤔 Not my vibe',
-    '💯 *SAVE OR SKIP?*\n💯 Saving at least one\n🤔 Not today\nReact honestly.',
-    '🤩 *FIRST IMPRESSION?*\n🤩 Obsessed\n❤️ Love it\n👍 It\'s good\n😐 Meh\nReact honestly.',
+    '🎲✨ *WOULD YOU RATHER...?*\n👍 Have 100 wallpapers you love\nOR\n😍 Have 1 perfect wallpaper forever\nReact 👍 or 😍',
+    '🏆🔥 *RATE TODAY\'S DROP*\n👍 Good\n🔥 Fire\n🤩 Best drop ever\nReact honestly.',
+    '💫 *REACT WITH YOUR VIBE*\n🔥 Love it\n😍 Obsessed\n💯 Saving all\n🤔 Not my vibe',
+    '🌟 *SAVE OR SKIP?*\n💯 Saving at least one\n🤔 Not today\nReact honestly.',
+    '🎭✨ *FIRST IMPRESSION?*\n🤩 Obsessed\n❤️ Love it\n👍 It\'s good\n😐 Meh\nReact honestly.',
   ],
 };
 
@@ -166,9 +177,10 @@ async function generateLiveGame(category, categoryName) {
     const gameType = pick(fresh.length ? fresh : GAME_TYPES);
     _lastAIGameType[category] = gameType;
 
-    // Short direct prompt — specify exact Telegram reaction emojis
-    const tgEmojis = '❤️ 🔥 👍 👎 🥰 😍 🤩 😱 🤔 🤯 😢 🎉 💯 💔 😈 🌚 ⚡ 🏆 😎 🤷 😁 🙏 👌 😇 🕊️ 😨 😭 🤬 👏';
-    const shortPrompt = `${gameType} game for ${categoryName} wallpaper drop. Use ONLY these emojis: ${tgEmojis}. WhatsApp *bold* title, max 5 lines, end with React instructions.`;
+    // Reaction emojis must be from Telegram default list only
+    // Caption/title emojis can be anything — only the REACT options must be from this list
+    const tgReactions = '❤️ 🔥 👍 👎 🥰 😍 🤩 😱 🤔 🤯 😢 🎉 💯 💔 😈 🌚 ⚡ 🏆 😎 🤷 😁 🙏 👌 😇 🕊️ 😨 😭 🤬 👏 🤣 🤭 🤡 🐋 🌭 🍌 😐 😑 🍓 🍾 💋 😴 🤓 👻 👀 🎃 🙈 🤝 ✍️ 🫠 👉 👴 🎄 ⛄ 💅 😜 🗿 🆒 🩷 🙊 🦄 😘 💊 😎 👾 🙆 🙋 😡';
+    const shortPrompt = `Create a ${gameType} game for a ${categoryName} wallpaper channel drop. The game title and description can use any fitting emoji. But the REACT options at the end MUST only use emojis from this list: ${tgReactions}. Use WhatsApp *bold* for title only. Max 5 lines. End with React [emoji] or [emoji].`;
 
     const r = await axios.get('https://prexzyapis.com/ai/chatbot', {
       params: { text: shortPrompt },
