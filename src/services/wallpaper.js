@@ -642,6 +642,13 @@ async function postWallpapersToAllTgChannels(bot, category) {
   if (!wallpapers.length) { logger.warn(`Drop ${category}: no wallpapers`); return []; }
 
   const meta = CATEGORY_META[category] || { emoji: '🖼️', name: category.replace(/_/g, ' ') };
+  const profile = pickEditorialProfile(category);
+
+  // Generate live AI game for TG caption
+  const { generateLiveGame, pickStaticGame } = require('./editorialEngine');
+  let tgGame = await generateLiveGame(category, meta.name).catch(() => null);
+  if (!tgGame) tgGame = pickStaticGame(category);
+
   const captionText = ui.dropCaption({
     category,
     displayName: meta.name,
@@ -650,8 +657,9 @@ async function postWallpapersToAllTgChannels(bot, category) {
     botName: config.bot.name,
     botUsername: config.bot.username,
     count: wallpapers.length,
-    description: pickEditorialProfile(category).mood,
+    description: profile.mood,
     webUrl: config.webUrl,
+    game: tgGame,
   });
 
   const promoRows = await getPromoButtons();

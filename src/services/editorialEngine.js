@@ -229,4 +229,4 @@ async function buildEditorialCaption({ category, categoryName, count, mood, hash
   return pick(layouts).filter(l => l !== undefined).join('\n');
 }
 
-module.exports = { buildEditorialCaption };
+module.exports = { buildEditorialCaption, generateLiveGame, pickStaticGame };

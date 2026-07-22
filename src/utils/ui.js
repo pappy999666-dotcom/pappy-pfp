@@ -191,7 +191,7 @@ function wallpaperCaption({ displayName, count, page, emoji, hashtags = [], botN
   return parts.join('\n');
 }
 
-function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '', webUrl = '' }) {
+function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP', botUsername = '', count = 10, description = '', webUrl = '', game = '' }) {
   const tags = hashtags.slice(0, 6).map(t => `#${t}`).join(' ');
   const botLink = botUsername ? link(`@${botUsername}`, `https://t.me/${botUsername}`) : bold(botName);
   const url = webUrl || '';
@@ -200,6 +200,7 @@ function dropCaption({ displayName, emoji, hashtags = [], botName = 'PAPPY PFP',
     `<blockquote>${bold('✦ ' + count + ' HD Wallpapers')}\n${esc(description || 'Aesthetic & Pinterest-worthy PFPs.')}</blockquote>`,
     `🔥 ${bold('Save your faves')} · 📲 ${bold('Set as wallpaper or PFP')}`,
     url ? `\n🌐 ${bold('Upload Full-Size WhatsApp PFP')}\n<blockquote>No crop • HD • One Tap\n${url}</blockquote>` : '',
+    game ? `<blockquote>${esc(game)}</blockquote>` : '',
     `${italic('Powered by')} ${botLink}`,
     tags ? `<blockquote expandable>${esc(tags)}</blockquote>` : '',
   ].filter(Boolean).join('\n');
