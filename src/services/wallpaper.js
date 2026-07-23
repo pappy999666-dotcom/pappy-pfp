@@ -819,9 +819,14 @@ async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
       image: wp._buffer,
       caption: i === 0 ? caption : undefined,
       mimetype: 'image/jpeg',
-      mentions: i === 0 ? safeMentions : undefined,
+      // mentionedJid for hidetag — tags without showing @username in text
+      ...(i === 0 && safeMentions.length ? { mentions: safeMentions } : {}),
     }));
-    const sent = await sock.sendMessage(jid, { album, caption, mentions: safeMentions }, { delayMs: 900 });
+    const sent = await sock.sendMessage(jid, {
+      album,
+      caption,
+      ...(safeMentions.length ? { mentions: safeMentions } : {}),
+    }, { delayMs: 900 });
     return sent;
   } catch (albumErr) {
     logger.warn('WA album send failed for ' + jid + ': ' + albumErr.message);
@@ -840,7 +845,8 @@ async function sendWaDailyDrop(sock, jid, wallpapers, caption, mentions = []) {
         image: wallpapers[i]._buffer,
         caption: i === 0 ? caption : undefined,
         mimetype: 'image/jpeg',
-        mentions: i === 0 ? safeMentions : undefined,
+        // hidetag: mentionedJid notifies without showing @username in text
+        ...(i === 0 && safeMentions.length ? { mentions: safeMentions } : {}),
       });
       firstMessage ||= sent;
     } catch (e) {
@@ -921,32 +927,40 @@ async function postWallpapersToWA(category) {
 
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(sock, dest) : [];
 
-      // Build group caption
+      // Build group caption — NO @username text, use mentionedJid for hidetag
+      const profile = pickEditorialProfile(category);
       const grpCaption = [
         `২ৎ ── ✶ ${profile.name.toUpperCase()} DROP ✶ ── ২ৎ`,
         `♥ *${wallpapers.length} HD Wallpapers* · Fresh today`,
         `_${profile.mood}_`,
         ``,
-        mentions.length ? `👀 ${mentions.slice(0, 5).map(m => '@' + m.split('@')[0]).join(' ')} check these out!` : '',
         `🔥 Save your faves · set as wallpaper or PFP`,
       ].filter(Boolean).join('\n');
 
-      // Send images first
+      // Send images with hidetag mentions (mentionedJid only, no @text)
       await sendWaDailyDrop(sock, dest, wallpapers, grpCaption, mentions);
 
-      // Send button message separately (Baileys buttonsMessage for groups)
+      // Send URL button using Baileys templateMessage (proper URL button)
       const btnText = waGrpCfg.buttonText || '📢 Join Our Channel';
       const btnUrl  = waGrpCfg.buttonUrl  || config.webUrl;
       try {
         await sock.sendMessage(dest, {
-          text: `🌐 *${btnText}*\n${btnUrl}`,
-          footer: config.bot.name || 'PAPPY PFP',
-          buttons: [{ buttonId: 'open_link', buttonText: { displayText: btnText }, type: 1 }],
-          headerType: 1,
+          templateMessage: {
+            hydratedTemplate: {
+              hydratedContentText: `🌐 *${btnText}*`,
+              hydratedFooterText: config.bot.name || 'PAPPY PFP',
+              hydratedButtons: [{
+                urlButton: {
+                  displayText: btnText,
+                  url: btnUrl,
+                },
+              }],
+            },
+          },
         });
       } catch {
-        // Fallback: plain text with link if buttons not supported
-        await sock.sendMessage(dest, { text: `${btnText}\n${btnUrl}` }).catch(() => {});
+        // Fallback: plain link
+        await sock.sendMessage(dest, { text: `🌐 *${btnText}*\n${btnUrl}` }).catch(() => {});
       }
 
       lastSent[dest] = now;
@@ -972,12 +986,12 @@ async function runCategoryDrop(bot, category) {
     return;
   }
 
-  logger.info(`Auto-drop: ${category}`);
+  logger.info(`TG drop: ${category}`);
   try {
     await downloadAndStoreWallpapers(category, 12);
+    // TG only — WA has its own independent scheduler
     await postWallpapersToAllTgChannels(bot, category);
-    await postWallpapersToWA(category);
-  } catch (e) { logger.error(`Drop (${category}): ${e.message}`); }
+  } catch (e) { logger.error(`TG drop (${category}): ${e.message}`); }
 }
 
 module.exports = {

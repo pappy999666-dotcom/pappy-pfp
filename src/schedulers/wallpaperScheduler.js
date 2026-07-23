@@ -17,22 +17,28 @@ async function getActiveTgCats() {
 async function getActiveWaCats() {
   const waCfg = await sm.getGroup('waChannel');
   if (Array.isArray(waCfg.categories) && waCfg.categories.length) return waCfg.categories;
-  return ['anime','dark_anime','cute_anime','manhwa','aesthetic','amoled',
-          'pappy_digital_art','pappy_cute_pfp','pappy_black_anime','pappy_manhwa_dark'];
+  return ['anime', 'dark_anime', 'cute_anime', 'manhwa', 'aesthetic', 'amoled',
+          'pappy_digital_art', 'pappy_cute_pfp', 'pappy_black_anime', 'pappy_manhwa_dark'];
 }
 
+// ── Telegram Scheduler ────────────────────────────────────────────────────────
 async function scheduleNextTgDrop(bot) {
   const drops = await sm.getGroup('drops');
   if (!drops.enabled || !drops.autoDropEnabled) {
     _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 30 * 60 * 1000);
     return;
   }
-  const cats = await getActiveTgCats();
-  if (!cats.length) { _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 60 * 60 * 1000); return; }
 
-  // categoriesPerDay controls how many drops per day; interval = 24h / categoriesPerDay
+  const cats = await getActiveTgCats();
+  if (!cats.length) {
+    _tgTimer = setTimeout(() => scheduleNextTgDrop(bot), 60 * 60 * 1000);
+    return;
+  }
+
+  // categoriesPerDay: 0 = all cats over 24h, N = post N cats per day
   const perDay = Math.min(cats.length, Math.max(1, parseInt(drops.categoriesPerDay, 10) || cats.length));
   const intervalMs = Math.floor(24 * 60 * 60 * 1000 / perDay);
+
   const category = cats[_tgIdx % cats.length];
   logger.info(`Next TG drop: ${category} in ${Math.round(intervalMs / 60000)}m (${perDay}/day)`);
 
@@ -44,14 +50,24 @@ async function scheduleNextTgDrop(bot) {
   }, intervalMs);
 }
 
+// ── WhatsApp Scheduler ────────────────────────────────────────────────────────
 async function scheduleNextWaDrop(bot) {
   const waCfg = await sm.getGroup('waChannel');
-  if (!waCfg.enabled) { _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000); return; }
-  const cats = await getActiveWaCats();
-  if (!cats.length) { _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000); return; }
+  if (!waCfg.enabled) {
+    _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000);
+    return;
+  }
 
+  const cats = await getActiveWaCats();
+  if (!cats.length) {
+    _waTimer = setTimeout(() => scheduleNextWaDrop(bot), 60 * 60 * 1000);
+    return;
+  }
+
+  // timesPerDay controls how many WA drops per day
   const perDay = Math.max(1, parseInt(waCfg.timesPerDay, 10) || 2);
   const intervalMs = Math.floor(24 * 60 * 60 * 1000 / perDay);
+
   const category = cats[_waIdx % cats.length];
   logger.info(`Next WA drop: ${category} in ${Math.round(intervalMs / 60000)}m (${perDay}/day)`);
 

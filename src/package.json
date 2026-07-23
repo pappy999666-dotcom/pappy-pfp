@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@crysnovax/baileys": "^2.6.9",
+    "@crysnovax/baileys": "^2.7.0",
     "axios": "^1.18.1",
     "bullmq": "^5.80.9",
     "dotenv": "^17.4.2",
