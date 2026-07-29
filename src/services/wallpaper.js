@@ -989,7 +989,10 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
       const dropSock = getOwnerSock();
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(dropSock, dest) : [];
 
-      // Album with nativeFlow button at top level — caption on album[0], button attached
+      // Album with nativeFlow button on the caption-bearing item (album[0]) only.
+      // Top-level nativeFlow/footer breaks Baileys' media grouping — keep the top-level
+      // payload as just { album } so Baileys sends a native album, then the URL button
+      // is part of the first image message that already owns the caption.
       let sent = false;
       try {
         const album = wallpapers.map((wp, i) => ({
@@ -998,13 +1001,11 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
           ...(i === 0 ? {
             caption: grpCaption,
             ...(mentions.length ? { mentions } : {}),
+            nativeFlow: [{ url: btnUrl, text: btnText }],
+            footer: config.bot.name,
           } : {}),
         }));
-        await dropSock.sendMessage(dest, {
-          album,
-          nativeFlow: [{ url: btnUrl, text: btnText }],
-          footer: config.bot.name,
-        }, { delayMs: 900 });
+        await dropSock.sendMessage(dest, { album }, { delayMs: 900 });
         sent = true;
         logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
       } catch (albumErr) {

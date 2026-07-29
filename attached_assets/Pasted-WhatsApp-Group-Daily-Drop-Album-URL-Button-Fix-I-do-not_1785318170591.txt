@@ -1,0 +1,152 @@
+WhatsApp Group Daily Drop Album & URL Button Fix
+
+I do not want another workaround. I want a proper investigation into why the WhatsApp Group Daily Drop album is breaking.
+
+The current implementation appears to have broken Baileys' native album behavior.
+
+---
+
+Current Issue
+
+Originally, the Daily Drop was sent as a proper WhatsApp album.
+
+After adding the URL button logic, the album now sends each image individually.
+
+This should never happen.
+
+The same media grouping works perfectly for WhatsApp Channels, so there is no reason the Group implementation should break if the media pipeline is correct.
+
+This strongly suggests the URL button implementation is interfering with the album generation.
+
+---
+
+Investigate Before Changing Anything
+
+Do not rewrite the album system from scratch.
+
+First, trace the entire sending pipeline and determine exactly where the media group is being broken.
+
+Audit:
+
+- Album generation
+- Media array creation
+- Caption assignment
+- URL button creation
+- Interactive message generation
+- Native Baileys send flow
+- Message wrappers
+- Any helper functions modifying the payload
+- Any logic that causes images to be sent individually
+
+The objective is to preserve Baileys' native album implementation—not replace it.
+
+---
+
+Understanding the Album Flow
+
+From observing the behavior, it appears Baileys works like this:
+
+1. One image in the album carries the caption.
+2. The remaining images are synchronized into that media group.
+3. WhatsApp renders everything as one album.
+
+If this understanding is correct, then the URL button should follow the same image that already owns the caption, not create a separate message or separate image payload.
+
+Do not rebuild the first image.
+
+Do not create another image message just because a button is needed.
+
+Instead, extend the existing caption-bearing image with the required metadata so that the rest of the images continue syncing into the same album.
+
+The album should remain intact exactly as Baileys intended.
+
+---
+
+Required Logic
+
+The process should be:
+
+- Build the media album normally using the existing Baileys implementation.
+- Determine which image naturally receives the album caption.
+- Attach the URL button to that caption/message.
+- Allow the remaining images to synchronize into the album exactly as Baileys already handles.
+
+The URL button should become part of the caption-bearing message—not a separate image, not a duplicate message, and not a replacement for the album.
+
+---
+
+Do NOT Do This
+
+Do NOT:
+
+- Send every image individually.
+- Rebuild every image payload.
+- Wrap every image with its own button.
+- Generate duplicate captions.
+- Send another image just to display a button.
+- Replace the native album logic.
+
+The album behavior must remain native.
+
+---
+
+Preserve Existing Functionality
+
+Do not remove or break any existing features.
+
+The following must continue working:
+
+- Telegram URL button configuration.
+- WhatsApp Group URL button configuration.
+- WhatsApp Channel Daily Drop.
+- Telegram Daily Drop.
+- Album captions.
+- AI-generated captions.
+- Dynamic templates.
+- Collection grouping.
+- Scheduling.
+- Category rotation.
+
+Nothing should regress while fixing this issue.
+
+---
+
+Configuration
+
+The URL button should continue using the configured URL.
+
+For WhatsApp Groups:
+
+https://pappywapfpchanger.duckdns.org/
+
+Do not hardcode values throughout the codebase.
+
+Read the URL from the existing configuration so future updates only require changing one configuration value.
+
+---
+
+Expected Result
+
+After the fix:
+
+✅ WhatsApp Groups send one proper media album.
+
+✅ Images are grouped exactly as Baileys intends.
+
+✅ Only one image contains the album caption.
+
+✅ The URL button is attached to that same caption-bearing message.
+
+✅ The remaining images synchronize into the same album.
+
+✅ No duplicate captions.
+
+✅ No extra image messages.
+
+✅ No individual image spam.
+
+✅ Telegram behavior remains unchanged.
+
+✅ WhatsApp Channel behavior remains unchanged.
+
+The implementation should respect Baileys' native media grouping instead of fighting against it. The URL button should integrate into the existing album flow, not replace or break it.
