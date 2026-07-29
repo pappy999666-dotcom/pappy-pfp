@@ -133,6 +133,37 @@ async function route(ctx, bot) {
     if (!owner && data.startsWith('o_'))
       return ctx.answerCbQuery('Owner only.', { show_alert: true }).catch(() => {});
 
+    if (data === 'o_cmds') {
+      const text = [
+        ui.screenHeader(config.bot.name, 'Owner Commands'),
+        '',
+        '<blockquote>Tap a command to see its usage.</blockquote>'
+      ].join('\n');
+      return ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: K.ownerCmds() }).catch(() => {});
+    }
+
+    if (data.startsWith('o_cmd:')) {
+      const cmd = data.slice(6);
+      const usages = {
+        wadrop:   '<b>/wadrop</b> <code>&lt;category&gt;</code>\n\nManually trigger a WA drop.\nExample: <code>/wadrop anime</code>',
+        joingc:   '<b>/joingc</b> <code>&lt;invite_link&gt;</code>\n\nMake the owner WA join a group.\nExample: <code>/joingc https://chat.whatsapp.com/XXX</code>',
+        leavegc:  '<b>/leavegc</b> <code>&lt;jid&gt;</code>\n\nMake the owner WA leave a group.\nExample: <code>/leavegc 120363XXXXXX@g.us</code>',
+        jid:      '<b>/jid</b>\n\nList all WA groups &amp; channels the owner number is in.',
+        resolve:  '<b>/resolve</b> <code>&lt;invite_link&gt;</code>\n\nConvert a WA invite link to a JID.',
+        unfollow: '<b>/unfollow</b>\n\nList &amp; unfollow WA newsletters.',
+        imagine:  '<b>/imagine</b> <code>&lt;prompt&gt;</code>\n\nGenerate an AI image.\nExample: <code>/imagine dark anime girl portrait</code>',
+        download: '<b>/download</b> <code>&lt;url&gt;</code>\n\nDownload media from any supported platform.',
+        setpint:  '<b>/setpinterest</b> <code>&lt;token&gt;</code>\n\nSet the Pinterest API token.',
+        addcat:   '<b>/addcat</b>\n\nAdd a custom wallpaper category.',
+        setname:  '<b>/setname</b> <code>&lt;name&gt;</code>\n\nChange WA display name.',
+        suggest:  '<b>/suggest</b> <code>&lt;category&gt;</code>\n\nSuggest a new wallpaper category.',
+      };
+      const text = usages[cmd] || 'Unknown command.';
+      return ctx.answerCbQuery().then(() =>
+        ctx.reply(text, { parse_mode: 'HTML', reply_markup: K.back('o_cmds') })
+      ).catch(() => {});
+    }
+
     if (data === 'owner') return ow.panel(ctx);
     if (data === 'o_wa_drop_now') return ow.waDrop(ctx, bot);
     if (data === 'o_stats') return ow.stats(ctx);

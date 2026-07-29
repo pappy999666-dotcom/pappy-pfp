@@ -144,6 +144,43 @@ async function launch() {
     await ctx.reply(`✅ <b>Pinterest API Token Set!</b>\n\n<blockquote>Token saved. Pinterest official API is now active.\nRestart not needed — takes effect immediately.</blockquote>`, { parse_mode: 'HTML' });
   });
 
+  bot.command('joingc', async ctx => {
+    if (!config.ownerIds.includes(String(ctx.from?.id))) return;
+    const { isOwnerConnected, ownerJoinGroup } = require('./services/ownerWhatsapp');
+    if (!isOwnerConnected()) return ctx.reply('❌ Owner WA not connected.', { parse_mode: 'HTML' });
+    const link = ctx.message?.text?.split(' ')[1]?.trim();
+    if (!link) return ctx.reply('<blockquote>Usage: /joingc https://chat.whatsapp.com/XXXXX</blockquote>', { parse_mode: 'HTML' });
+    const { extractGroupId } = require('./utils/helpers');
+    const code = extractGroupId(link);
+    if (!code) return ctx.reply('❌ Invalid invite link.', { parse_mode: 'HTML' });
+    const wait = await ctx.reply('⏳ Joining group...', { parse_mode: 'HTML' });
+    try {
+      const jid = await ownerJoinGroup(code);
+      await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
+        `✅ <b>Joined!</b>\n<blockquote>JID: <code>${jid}</code></blockquote>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (e) {
+      await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
+        `❌ <b>Failed:</b> ${e.message}`, { parse_mode: 'HTML' }
+      ).catch(() => {});
+    }
+  });
+
+  bot.command('leavegc', async ctx => {
+    if (!config.ownerIds.includes(String(ctx.from?.id))) return;
+    const { isOwnerConnected, ownerLeaveGroup } = require('./services/ownerWhatsapp');
+    if (!isOwnerConnected()) return ctx.reply('❌ Owner WA not connected.', { parse_mode: 'HTML' });
+    const jid = ctx.message?.text?.split(' ')[1]?.trim();
+    if (!jid) return ctx.reply('<blockquote>Usage: /leavegc 1234567890-123456@g.us</blockquote>', { parse_mode: 'HTML' });
+    try {
+      await ownerLeaveGroup(jid);
+      await ctx.reply(`✅ <b>Left group</b> <code>${jid}</code>`, { parse_mode: 'HTML' });
+    } catch (e) {
+      await ctx.reply(`❌ <b>Failed:</b> ${e.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
   bot.command('wadrop', async ctx => {
     if (!config.ownerIds.includes(String(ctx.from?.id))) return;
     const { isOwnerConnected } = require('./services/ownerWhatsapp');
@@ -158,7 +195,7 @@ async function launch() {
       // Force-enable waChannel for manual drop
       const waCfg = await sm.getGroup('waChannel');
       if (!waCfg.enabled) await sm.set('waChannel.enabled', true);
-      const result = await postWallpapersToWA(category);
+      const result = await postWallpapersToWA(category, { forceGroup: true });
       await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
         `✅ <b>WA Drop Sent</b>\nCategory: <b>${category}</b> · <b>${result.length}</b> wallpapers → channel + group forward`,
         { parse_mode: 'HTML' }
@@ -293,6 +330,8 @@ async function launch() {
     { command: 'download', description: '📥 Download media from URL' },
     { command: 'setname',  description: '✏️ Change WhatsApp display name' },
     { command: 'jid',      description: '🔍 List WA group/channel JIDs (owner)' },
+    { command: 'joingc',   description: '👥 Join a WA group (owner)' },
+    { command: 'leavegc',  description: '🚪 Leave a WA group (owner)' },
     { command: 'resolve',  description: '🔗 Convert WA invite link to JID (owner)' },
     { command: 'unfollow', description: '📢 List/unfollow WA newsletters (owner)' },
     { command: 'addcat',   description: '➕ Add custom wallpaper category (owner)' },

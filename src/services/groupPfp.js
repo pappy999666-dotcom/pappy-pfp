@@ -2,9 +2,13 @@
 const config = require('../config');
 const logger = require('../utils/logger');
 const { GroupPfpTask, Channel } = require('../database/models');
-const { sleep, extractGroupId } = require('../utils/helpers');
-const { ownerJoinGroup, ownerSetGroupPfp, ownerLeaveGroup, isOwnerConnected, isOwnerAdminInGroup } = require('./ownerWhatsapp');
+const { sleep } = require('../utils/helpers');
+const { ownerJoinGroup, ownerSetGroupPfp, ownerLeaveGroup, ownerSendGroupMessage, isOwnerConnected, isOwnerAdminInGroup } = require('./ownerWhatsapp');
 const ui = require('../utils/ui');
+
+function generateVerifyCode() {
+  return 'PAPPY-' + Math.random().toString(36).slice(2, 7).toUpperCase();
+}
 
 async function liveLog(bot, task, text, keyboard) {
   if (!task.liveLogMsgId || !task.liveLogChatId) return;
@@ -32,7 +36,7 @@ function classifyJoinError(e) {
   const msg = String(e?.message || '').toLowerCase();
   const sc  = e?.output?.statusCode || e?.status || 0;
 
-  if (sc === 409 || msg.includes('already') || msg.includes('participant'))
+  if (sc === 409 || msg.includes('already') || msg.includes('participant') || msg.includes('conflict'))
     return { type: 'already_member', fatal: false };
   if (sc === 401 || msg.includes('not-authorized') || msg.includes('unauthorized'))
     return { type: 'unauthorized', fatal: true };
@@ -93,37 +97,81 @@ async function startGroupJoin(task, bot) {
     `⏳ ${ui.bold('Joining Group...')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\nPlease wait while the assistant joins the group.</blockquote>`
   );
 
+  let groupJid = null;
+
+  // Check if already in group first
   try {
-    const groupJid = await ownerJoinGroup(task.groupInviteCode);
+    const { getOwnerSock } = require('./ownerWhatsapp');
+    const sock = getOwnerSock();
+    const info = await sock.groupGetInviteInfo(task.groupInviteCode);
+    if (info?.id) {
+      const chats = await sock.groupFetchAllParticipating();
+      if (chats[info.id]) {
+        groupJid = info.id;
+        logger.info(`[GroupPFP] Already in group ${groupJid}, skipping join`);
+      }
+    }
+  } catch (e) {
+    logger.warn(`[GroupPFP] Pre-join check failed: ${e.message}`);
+  }
+
+  try {
+    if (!groupJid) {
+      groupJid = await ownerJoinGroup(task.groupInviteCode);
+    }
     task.groupJid = groupJid;
     task.status = 'pending_admin';
     task.joinedAt = new Date();
     task.approvedAt = new Date();
+    const code = generateVerifyCode();
+    task.verifyCode = code;
+    task.codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await task.save();
 
     await liveLog(bot, task,
-      `✅ ${ui.bold('Joined the group!')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\nPlease promote ${ui.bold(config.bot.name + ' Assistant')} (${ui.code('+' + config.ownerWaNumber)}) to <b>admin</b> in the group, then click the button below.</blockquote>`,
-      continueKeyboard(task.taskId)
+      `✅ ${ui.bold('Joined the group!')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\n1️⃣ Promote ${ui.bold(config.bot.name + ' Assistant')} (${ui.code('+' + config.ownerWaNumber)}) to <b>admin</b>\n2️⃣ Send this code in the <b>WhatsApp group</b>:\n\n${ui.code(code)}\n\n⏳ Code expires in <b>10 minutes</b></blockquote>`
     );
+    // Also send code directly in the WA group so user sees it there
+    await ownerSendGroupMessage(groupJid,
+      `👋 Hi! Please make me admin, then send this code in the group:`
+    ).catch(() => {});
+    await ownerSendGroupMessage(groupJid, code).catch(() => {});
 
-    startAdminTimeout(task, bot);
+    startCodeExpiry(task, bot);
     return task;
 
   } catch (e) {
     const { type, fatal } = classifyJoinError(e);
 
     if (type === 'already_member') {
-      // Already in group — try to get JID and proceed
-      logger.info(`[GroupPFP] Already in group ${task.groupInviteCode}, proceeding`);
+      logger.info(`[GroupPFP] Already in group ${task.groupInviteCode}, resolving JID...`);
+      try {
+        const { getOwnerSock } = require('./ownerWhatsapp');
+        const sock = getOwnerSock();
+        const info = await sock.groupGetInviteInfo(task.groupInviteCode);
+        task.groupJid = info.id;
+        logger.info(`[GroupPFP] Resolved groupJid: ${task.groupJid}`);
+      } catch (infoErr) {
+        logger.warn(`[GroupPFP] groupGetInviteInfo failed: ${infoErr.message}`);
+      }
       task.status = 'pending_admin';
       task.joinedAt = new Date();
       task.approvedAt = new Date();
+      const code = generateVerifyCode();
+      task.verifyCode = code;
+      task.codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
       await task.save();
       await liveLog(bot, task,
-        `ℹ️ ${ui.bold('Already in Group')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\nThe assistant is already in this group.\nPlease make sure ${ui.bold(config.bot.name + ' Assistant')} is an <b>admin</b>, then click the button below.</blockquote>`,
-        continueKeyboard(task.taskId)
+        `ℹ️ ${ui.bold('Already in Group')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\nCheck the WhatsApp group for the code.</blockquote>`
       );
-      startAdminTimeout(task, bot);
+      // Send code in WA group so user sees it there
+      if (task.groupJid) {
+        await ownerSendGroupMessage(task.groupJid,
+          `👋 Hi! Please make me admin, then send this code in the group:`
+        ).catch(() => {});
+        await ownerSendGroupMessage(task.groupJid, code).catch(() => {});
+      }
+      startCodeExpiry(task, bot);
       return task;
     }
 
@@ -212,59 +260,65 @@ function startApprovalCheck(task, bot) {
   }, 30_000);
 }
 
-function startAdminTimeout(task, bot) {
+function startCodeExpiry(task, bot) {
   setTimeout(async () => {
     const t = await GroupPfpTask.findOne({ taskId: task.taskId });
     if (!t || t.status !== 'pending_admin') return;
     t.status = 'failed';
-    t.errorMsg = 'Not promoted to admin within 30 minutes';
+    t.errorMsg = 'Verify code expired';
     t.completedAt = new Date();
     await t.save();
     await ownerLeaveGroup(t.groupJid).catch(() => {});
     await liveLog(bot, t,
-      ui.error('Timed Out', 'Bot was not promoted to admin within 30 minutes. The bot has left the group.'),
+      ui.error('Code Expired', 'The verification code expired after 10 minutes. Please start a new task.'),
       mainMenuKeyboard
     );
-  }, 30 * 60 * 1000);
+  }, 10 * 60 * 1000);
 }
 
-async function handleContinueButton(taskId, bot) {
-  const task = await GroupPfpTask.findOne({ taskId });
-  if (!task) return { ok: false, msg: 'Task not found.' };
+async function handleVerifyCode(groupJid, senderId, code, bot) {
+  const task = await GroupPfpTask.findOne({
+    verifyCode: code,
+    status: 'pending_admin',
+    codeExpiresAt: { $gt: new Date() },
+  });
 
-  if (!['pending_admin', 'pending_approval'].includes(task.status)) {
-    return { ok: false, msg: `Task is already ${task.status.replace(/_/g, ' ')}.` };
-  }
+  if (!task) return;
 
-  if (task.changeDone) return { ok: false, msg: 'PFP already changed for this task.' };
+  // Always trust the groupJid from the incoming WA message
+  task.groupJid = groupJid;
 
-  if (!task.groupJid) {
-    return { ok: false, msg: 'Group not joined yet. Please wait for approval.' };
-  }
-
-  await liveLog(bot, task,
-    `⚙️ ${ui.bold('Checking admin status...')}\n<blockquote>Task: ${ui.code(task.taskId)}</blockquote>`
-  );
-
-  const isAdmin = await isOwnerAdminInGroup(task.groupJid);
+  const isAdmin = await isOwnerAdminInGroup(groupJid);
   if (!isAdmin) {
-    await liveLog(bot, task,
-      `❌ ${ui.bold('Not Admin Yet')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\nThe bot is not an admin in the group yet.\nPlease promote ${ui.bold(config.bot.name + ' Assistant')} to admin, then click the button again.</blockquote>`,
-      continueKeyboard(task.taskId)
-    );
-    return { ok: false, msg: 'Bot is not admin yet in the group.' };
+    const newCode = generateVerifyCode();
+    task.verifyCode = newCode;
+    task.codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await task.save();
+    // Tell them in the WA group
+    await ownerSendGroupMessage(groupJid,
+      `⚠️ I'm not an admin yet!\nPlease promote me to admin first, then send this new code in the group:`
+    ).catch(() => {});
+    await ownerSendGroupMessage(groupJid, newCode).catch(() => {});
+    startCodeExpiry(task, bot);
+    return;
   }
 
+  // Admin confirmed — proceed
   task.status = 'active';
   task.adminAt = new Date();
+  task.verifyCode = null;
+  task.codeExpiresAt = null;
   await task.save();
 
   await liveLog(bot, task,
-    `✅ ${ui.bold('Admin Confirmed!')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\n⚙️ Changing group profile picture now...</blockquote>`
+    `✅ ${ui.bold('Verified! Changing group PFP now...')}\n<blockquote>Task: ${ui.code(task.taskId)}</blockquote>`
   );
 
   executeGroupPfpChange(task, bot).catch(e => logger.error(`Group PFP change: ${e.message}`));
-  return { ok: true };
+}
+
+async function handleContinueButton(taskId, bot) {
+  return { ok: false, msg: 'Please use the verify code method instead.' };
 }
 
 async function executeGroupPfpChange(task, bot) {
@@ -394,5 +448,5 @@ async function cancelGroupTask(taskId) {
 module.exports = {
   createImmediateTask, createScheduledTask,
   startGroupJoin, executeGroupPfpChange, handleContinueButton,
-  processScheduledChanges, cancelGroupTask, liveLog,
+  processScheduledChanges, cancelGroupTask, liveLog, handleVerifyCode,
 };

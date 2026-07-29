@@ -47,7 +47,7 @@ function extractGroupId(link) {
 }
 
 function isValidWaGroupLink(link) {
-  return /^https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+$/.test(link.trim());
+  return /^https?:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/.test(link.trim());
 }
 
 function isValidPhoneNumber(phone) {

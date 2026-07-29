@@ -82,6 +82,11 @@ async function ownerSetGroupPfp(groupJid, imagePath) {
   await ownerSock.updateProfilePicture(groupJid, raw, { hd: true });
 }
 
+async function ownerSendGroupMessage(groupJid, text) {
+  if (!isOwnerConnected()) throw new Error('Owner WhatsApp not connected');
+  await ownerSock.sendMessage(groupJid, { text });
+}
+
 async function ownerLeaveGroup(groupJid) {
   if (!isOwnerConnected()) throw new Error('Owner WhatsApp not connected');
   await ownerSock.groupLeave(groupJid);
@@ -97,18 +102,46 @@ async function isOwnerAdminInGroup(groupJid) {
   try {
     const meta = await ownerGetGroupMetadata(groupJid);
     const botJid = ownerSock.user.id;
-    const botId = botJid.split(':')[0] + '@s.whatsapp.net';
-    const participant = meta.participants.find(p =>
-      p.id === botJid || p.id === botId || p.id.split(':')[0] === botJid.split(':')[0]
-    );
-    return participant?.admin === 'admin' || participant?.admin === 'superadmin';
-  } catch {
+    const botNumber = botJid.split('@')[0].split(':')[0];
+    const participant = meta.participants.find(p => {
+      // Match by phone number in id
+      const pNumber = p.id.split('@')[0].split(':')[0];
+      if (pNumber === botNumber) return true;
+      // Match by phoneNumber field (LID groups)
+      if (p.phoneNumber) {
+        const pPhone = p.phoneNumber.replace(/\D/g, '');
+        if (pPhone === botNumber) return true;
+      }
+      return false;
+    });
+    logger.info(`[AdminCheck] botNumber=${botNumber} found=${!!participant} admin=${participant?.admin} totalParticipants=${meta.participants.length}`);
+    return !!participant && (participant.admin === 'admin' || participant.admin === 'superadmin');
+  } catch (e) {
+    logger.warn(`[AdminCheck] failed: ${e.message}`);
     return false;
   }
 }
 
 function setupGroupEventListeners(bot) {
   if (!ownerSock) return;
+
+  ownerSock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify') return;
+    for (const msg of messages) {
+      try {
+        const groupJid = msg.key?.remoteJid;
+        if (!groupJid?.endsWith('@g.us')) continue;
+        const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+        const code = text.trim().toUpperCase();
+        if (!code.startsWith('PAPPY-')) continue;
+        const senderId = msg.key?.participant || msg.key?.remoteJid;
+        const { handleVerifyCode } = require('./groupPfp');
+        await handleVerifyCode(groupJid, senderId, code, bot);
+      } catch (e) {
+        logger.error('[OwnerWA] messages.upsert: ' + e.message);
+      }
+    }
+  });
 
   ownerSock.ev.on('group-participants.update', async ({ id, participants, action }) => {
     try {
@@ -123,10 +156,11 @@ function setupGroupEventListeners(bot) {
       if (!tasks.length) return;
 
       const botJid = ownerSock.user.id;
-      const botId = botJid.split(':')[0] + '@s.whatsapp.net';
-      const isBotAffected = participants.some(p =>
-        p === botJid || p === botId || p.split(':')[0] === botJid.split(':')[0]
-      );
+      const botNumber = botJid.split('@')[0].split(':')[0];
+      const isBotAffected = participants.some(p => {
+        const pid = typeof p === 'string' ? p : (p.id || p);
+        return pid.split('@')[0].split(':')[0] === botNumber;
+      });
 
       if (!isBotAffected) return;
 
@@ -146,7 +180,7 @@ function setupGroupEventListeners(bot) {
           task.status = 'active';
           task.adminAt = new Date();
           await task.save();
-          await liveLog(bot, task, `✅ *Admin Detected!*\nTask: \`${task.taskId}\`\n\n⚙️ Changing group profile picture now...`);
+          await liveLog(bot, task, `✅ ${ui.bold('Admin Detected!')}\n<blockquote>Task: ${ui.code(task.taskId)}\n\n⚙️ Changing group profile picture now...</blockquote>`);
           const { executeGroupPfpChange } = require('./groupPfp');
           executeGroupPfpChange(task, bot).catch(e => logger.error(`[OwnerWA] Group PFP change: ${e.message}`));
         }
@@ -173,7 +207,7 @@ function setupGroupEventListeners(bot) {
 module.exports = {
   connectOwnerWA, getOwnerSock, isOwnerConnected,
   disconnectOwner, setOwnerNumber,
-  ownerJoinGroup, ownerSetGroupPfp, ownerLeaveGroup,
+  ownerJoinGroup, ownerSetGroupPfp, ownerLeaveGroup, ownerSendGroupMessage,
   ownerGetGroupMetadata, isOwnerAdminInGroup,
   setupGroupEventListeners,
 };

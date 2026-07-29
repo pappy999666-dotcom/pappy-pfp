@@ -123,7 +123,11 @@ const K = {
       [btn('🔒 Force Join Settings',  'o_fj',        PRIMARY)],
       [btn('📢 Channel Management',   'o_channels',  PRIMARY)],
       [btn('📣 Promotion Manager',     'o_promo',     SUCCESS)],
+      [btn('📱 Owner WA Status',        'o_wa_status', PRIMARY)],
+      [btn('🔧 Set/Change Owner WA',    'o_wa_set',    SUCCESS),
+       btn('🔗 Pair Owner WA',          'o_wa_pair',   SUCCESS)],
       [btn('⚙️ Settings & Advanced',  'o_settings',  PRIMARY)],
+      [btn('📜 Owner Commands',        'o_cmds',      PRIMARY)],
       [mainMenuBtn()],
     ]};
   },
@@ -135,6 +139,18 @@ const K = {
       [btn('🔧 Set/Change Owner WA',  'o_wa_set',    SUCCESS)],
       [btn('🔗 Pair Owner WA',        'o_wa_pair',   SUCCESS)],
       [btn('🔄 Restart Bot',          'o_restart',   DANGER)],
+      [backBtn('owner')],
+    ]};
+  },
+
+  ownerCmds() {
+    return { inline_keyboard: [
+      [btn('📢 /wadrop <cat>',     'o_cmd:wadrop',    PRIMARY), btn('👥 /joingc <link>',    'o_cmd:joingc',    PRIMARY)],
+      [btn('🚪 /leavegc <jid>',   'o_cmd:leavegc',   PRIMARY), btn('🔍 /jid',              'o_cmd:jid',       PRIMARY)],
+      [btn('🔗 /resolve <link>',  'o_cmd:resolve',   PRIMARY), btn('📢 /unfollow',         'o_cmd:unfollow',  PRIMARY)],
+      [btn('🎨 /imagine <prompt>','o_cmd:imagine',   PRIMARY), btn('📥 /download <url>',   'o_cmd:download',  PRIMARY)],
+      [btn('📌 /setpinterest',    'o_cmd:setpint',   PRIMARY), btn('➕ /addcat',            'o_cmd:addcat',    PRIMARY)],
+      [btn('✏️ /setname <name>',  'o_cmd:setname',   PRIMARY), btn('💡 /suggest',          'o_cmd:suggest',   PRIMARY)],
       [backBtn('owner')],
     ]};
   },

@@ -58,6 +58,8 @@ const groupPfpTaskSchema = new mongoose.Schema({
   liveLogMsgId:   Number,
   liveLogChatId:  String,
   changeDone:     { type: Boolean, default: false },
+  verifyCode:     String,
+  codeExpiresAt:  Date,
 });
 groupPfpTaskSchema.index({ telegramId: 1, status: 1 });
 
