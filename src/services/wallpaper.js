@@ -959,13 +959,13 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
     const now         = Date.now();
     const lastSent    = typeof waGrpCfg.lastSent === 'object' && waGrpCfg.lastSent !== null
       ? waGrpCfg.lastSent : {};
-    const btnUrl  = waGrpCfg.buttonUrl  || WA_GROUP_WEB_URL;
+    const btnUrl  = waGrpCfg.buttonUrl  || config.webUrl;
     const btnText = waGrpCfg.buttonText || '📢 Join Our Channel';
 
-    // Build premium caption once — all groups get the same drop
+    // Build premium caption once — web URL in caption is always the group web app
     const grpCaption = await buildWaCaption(category, wallpapers.length, {
       platform: 'group',
-      webUrl: btnUrl,
+      webUrl: WA_GROUP_WEB_URL,
     });
 
     for (const dest of waGrpCfg.destinations.filter(Boolean)) {
@@ -989,7 +989,7 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
       const dropSock = getOwnerSock();
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(dropSock, dest) : [];
 
-      // Attempt 1: album with nativeFlow button on first image
+      // Album with nativeFlow button at top level — caption on album[0], button attached
       let sent = false;
       try {
         const album = wallpapers.map((wp, i) => ({
@@ -997,12 +997,14 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
           mimetype: 'image/jpeg',
           ...(i === 0 ? {
             caption: grpCaption,
-            footer: config.bot.name,
-            nativeFlow: [{ url: btnUrl, text: btnText }],
             ...(mentions.length ? { mentions } : {}),
           } : {}),
         }));
-        await dropSock.sendMessage(dest, { album }, { delayMs: 900 });
+        await dropSock.sendMessage(dest, {
+          album,
+          nativeFlow: [{ url: btnUrl, text: btnText }],
+          footer: config.bot.name,
+        }, { delayMs: 900 });
         sent = true;
         logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
       } catch (albumErr) {
