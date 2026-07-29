@@ -789,16 +789,25 @@ async function fetchWyrQuestion() {
   }
 }
 
-async function buildWaCaption(category, count) {
+// Group CTA URL — dedicated web app for non-Telegram users
+const WA_GROUP_WEB_URL = 'https://pappywapfpchanger.duckdns.org/';
+
+async function buildWaCaption(category, count, { platform = 'channel', webUrl } = {}) {
   const profile = pickEditorialProfile(category);
+  const meta = CATEGORY_META[category];
   const hashtags = (CATEGORY_HASHTAGS[category] || []).slice(0, 6);
+  const keywords = Array.isArray(profile.seeds) ? profile.seeds.slice(0, 2) : [];
+  const url = webUrl || config.webUrl;
   return buildEditorialCaption({
     category,
     categoryName: profile.name,
+    categoryEmoji: meta?.emoji || '✨',
     count,
     mood: profile.mood,
     hashtags,
-    webUrl: config.webUrl,
+    webUrl: url,
+    platform,
+    keywords,
   });
 }
 
@@ -946,19 +955,15 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
       }
 
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(sock, dest) : [];
-      const profile = pickEditorialProfile(category);
       const waChLinks = (await Channel.find({ isActive: true, platform: 'whatsapp' })).map(c => c.link).filter(Boolean);
-      const btnUrl  = waGrpCfg.buttonUrl  || config.webUrl;
+      const btnUrl  = waGrpCfg.buttonUrl  || WA_GROUP_WEB_URL;
       const btnText = waGrpCfg.buttonText || '📢 Join Our WA Channel';
 
-      const grpCaption = [
-        `২ৎ ── ✶ ${profile.name.toUpperCase()} DROP ✶ ── ২ৎ`,
-        `♥ *${wallpapers.length} HD Wallpapers* · Fresh today`,
-        `_${profile.mood}_`,
-        ``,
-        `🔥 Save your faves · set as wallpaper or PFP`,
-        waChLinks.length ? `📢 ${waChLinks[0]}` : '',
-      ].filter(Boolean).join('\n');
+      // Premium caption — same quality as channel drops, group-specific URL
+      const grpCaption = await buildWaCaption(category, wallpapers.length, {
+        platform: 'group',
+        webUrl: btnUrl,
+      });
 
       // Send album — button attached to first image via nativeFlow
       const { isOwnerConnected: _ic, getOwnerSock: _gs } = require('./ownerWhatsapp');
