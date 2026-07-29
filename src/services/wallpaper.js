@@ -990,35 +990,53 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
       const dropSock = getOwnerSock();
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(dropSock, dest) : [];
 
-      // Step 1: Send the album using the same clean channel flow.
-      // @crysnovax/baileys validates every album item must be a pure imageMessage/videoMessage —
-      // any nativeFlow wrapper on an item (or at the top level alongside album) causes the library
-      // to throw "Invalid message type for album" / "Invalid media type for interactive message
-      // header", which triggers the individual-send fallback. Using sendWaDailyDrop keeps the
-      // album native and intact exactly as Baileys intends.
-      const albumResult = await sendWaDailyDrop(dropSock, dest, wallpapers, grpCaption, mentions);
-      const sent = albumResult !== null && albumResult !== undefined;
-      if (sent) {
-        logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
-      } else {
-        logger.warn(`WA group drop: album failed for ${dest}, skipping button`);
-      }
+      // Group send: image 1 (with caption) → URL button immediately → remaining images.
+      //
+      // The album API is atomic from the caller's side — sendMessage resolves only after ALL
+      // items are uploaded (delayMs * count ≈ 9s for 10 images). In a busy group that delay
+      // lets other members' messages slide between the album and the button, visually separating
+      // them. Instead we send sequentially so the button fires the instant image 1 lands, with
+      // zero sleep between them. Remaining images follow after.
+      let sent = false;
+      try {
+        // ── Image 1: caption + mentions ──────────────────────────────────────
+        await dropSock.sendMessage(dest, {
+          image: wallpapers[0]._buffer,
+          mimetype: 'image/jpeg',
+          caption: grpCaption,
+          ...(mentions.length ? { mentions } : {}),
+        });
 
-      // Step 2: After the album, send the URL button as a standalone nativeFlow text message.
-      // No image is attached — this avoids any duplicate and keeps the album clean.
-      // The button must be sent as a separate message because the library does not support
-      // nativeFlow attached to album items or to the albumMessage parent envelope.
-      if (sent && isOwnerConnected()) {
-        try {
+        // ── URL button: fires immediately, no sleep ──────────────────────────
+        if (isOwnerConnected()) {
           const btnSock = getOwnerSock();
           await btnSock.sendMessage(dest, {
             text: btnText,
             nativeFlow: [{ url: btnUrl, text: btnText }],
             footer: config.bot.name,
           });
-        } catch (btnErr) {
-          logger.warn(`WA group button send failed for ${dest}: ${btnErr.message}`);
         }
+
+        // ── Remaining images ─────────────────────────────────────────────────
+        for (let i = 1; i < wallpapers.length; i++) {
+          if (!isOwnerConnected()) {
+            await sleep(8000);
+            if (!isOwnerConnected()) {
+              logger.warn(`WA group: disconnected mid-send at img ${i} for ${dest}`);
+              break;
+            }
+          }
+          await sleep(700);
+          await getOwnerSock().sendMessage(dest, {
+            image: wallpapers[i]._buffer,
+            mimetype: 'image/jpeg',
+          });
+        }
+
+        sent = true;
+        logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
+      } catch (grpErr) {
+        logger.warn(`WA group drop failed for ${dest}: ${grpErr.message}`);
       }
 
       if (sent) {
