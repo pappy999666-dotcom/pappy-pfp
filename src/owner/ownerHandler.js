@@ -534,7 +534,7 @@ async function waDrop(ctx, bot) {
   const category = ctx.callbackQuery ? ctx.callbackQuery.data.split(':')[1] : (ctx.message?.text?.split(' ')[1] || 'anime');
   const wait = await ctx.reply(ui.loading(`Sending WA drop: <b>${category}</b>...`), { parse_mode: 'HTML' });
   try {
-    const result = await postWallpapersToWA(category);
+    const result = await postWallpapersToWA(category, { forceGroup: true });
     await ctx.telegram.editMessageText(ctx.chat.id, wait.message_id, null,
       ui.success('WA Drop Sent', `Category: <b>${category}</b>\nPosted: <b>${result.length}</b> wallpapers to channel + forwarded to groups.`),
       { parse_mode: 'HTML' }
