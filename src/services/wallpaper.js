@@ -1005,6 +1005,7 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
               text: btnText,
               nativeFlow: [{ url: btnUrl, text: btnText }],
               footer: config.bot.name,
+              ...(mentions.length ? { mentions } : {}),
             });
           } catch (btnErr) {
             logger.warn(`WA group button send failed for ${dest}: ${btnErr.message}`);
