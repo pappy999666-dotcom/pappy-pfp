@@ -894,12 +894,18 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
   const { getOwnerSock, isOwnerConnected } = require('./ownerWhatsapp');
   if (!isOwnerConnected()) return [];
 
-  const waChannels = await Channel.find({ isActive: true, platform: 'whatsapp' });
-  if (!waChannels.length) return [];
+  const waChCfg  = await sm.getGroup('waChannel');
+  const waGrpCfg = await sm.getGroup('waGroup');
 
-  const waChCfg = await sm.getGroup('waChannel');
-  if (!waChCfg.enabled) return [];
+  // Determine what's active — channels and groups run independently
+  const channelActive = waChCfg.enabled;
+  const groupActive   = waGrpCfg.enabled
+    && Array.isArray(waGrpCfg.destinations)
+    && waGrpCfg.destinations.filter(Boolean).length > 0;
 
+  if (!channelActive && !groupActive) return [];
+
+  // Fetch wallpapers (shared between channels and groups)
   const dropCount = Math.min(Math.max(parseInt(waChCfg.imagesPerDrop, 10) || 10, 2), 10);
   let wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(dropCount);
   if (wallpapers.length < dropCount) {
@@ -910,42 +916,57 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
   }
   if (!wallpapers.length) return [];
 
-  const sock = getOwnerSock();
-  const caption = await buildWaCaption(category, wallpapers.length);
+  // Prepare image buffers once
   const enhancerCfg = await sm.getGroup('enhancer');
   const wmCfg = await sm.getGroup('watermark');
-
   for (const wp of wallpapers) wp._buffer = await readWallpaperBuffer(wp, enhancerCfg, wmCfg);
 
-  const posted = [];
-  for (const channel of waChannels) {
-    // Always get fresh sock before each send
-    const s = getOwnerSock();
-    let jid = channel.chatId || channel.link;
-    const inviteMatch = String(jid).match(/(?:channel\/|^)([A-Za-z0-9]{20,})$/);
-    if (inviteMatch && !String(jid).includes('@')) {
-      try {
-        const nlMeta = await s.newsletterMetadata('invite', inviteMatch[1]);
-        if (nlMeta?.id) {
-          jid = nlMeta.id;
-          await Channel.findByIdAndUpdate(channel._id, { chatId: jid });
-        }
-      } catch (e) { logger.warn('Could not resolve newsletter JID: ' + e.message); }
-    }
+  // Track which wallpapers were actually delivered (deduplicated by _id)
+  const postedSet = new Set();
+  function markPosted(wps) { for (const w of wps) postedSet.add(String(w._id)); }
 
-    await sendWaDailyDrop(s, jid, wallpapers, caption, []);
-    posted.push(...wallpapers);
-    logger.info('WA channel drop: ' + wallpapers.length + ' ' + category + ' wallpapers → ' + jid);
+  // ── WA Channel drops ────────────────────────────────────────────────────────
+  if (channelActive) {
+    const waChannels = await Channel.find({ isActive: true, platform: 'whatsapp' });
+    if (waChannels.length) {
+      const caption = await buildWaCaption(category, wallpapers.length, { platform: 'channel' });
+      for (const channel of waChannels) {
+        const s = getOwnerSock();
+        let jid = channel.chatId || channel.link;
+        const inviteMatch = String(jid).match(/(?:channel\/|^)([A-Za-z0-9]{20,})$/);
+        if (inviteMatch && !String(jid).includes('@')) {
+          try {
+            const nlMeta = await s.newsletterMetadata('invite', inviteMatch[1]);
+            if (nlMeta?.id) {
+              jid = nlMeta.id;
+              await Channel.findByIdAndUpdate(channel._id, { chatId: jid });
+            }
+          } catch (e) { logger.warn('Could not resolve newsletter JID: ' + e.message); }
+        }
+        await sendWaDailyDrop(s, jid, wallpapers, caption, []);
+        markPosted(wallpapers);
+        logger.info(`WA channel drop: ${wallpapers.length} ${category} wallpapers → ${jid}`);
+      }
+    } else {
+      logger.info('WA channel drop: no active WA channels configured');
+    }
   }
 
-  // WA Group forward
-  const waGrpCfg = await sm.getGroup('waGroup');
-  if (waGrpCfg.enabled && Array.isArray(waGrpCfg.destinations) && waGrpCfg.destinations.length) {
+  // ── WA Group drops ──────────────────────────────────────────────────────────
+  if (groupActive) {
     const timesPerDay = Math.max(1, parseInt(waGrpCfg.timesPerDay, 10) || 2);
-    const cooldownMs = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
-    const now = Date.now();
-    const lastSent = waGrpCfg.lastSent || {};
-    const profile = pickEditorialProfile(category);
+    const cooldownMs  = Math.floor(24 * 60 * 60 * 1000 / timesPerDay);
+    const now         = Date.now();
+    const lastSent    = typeof waGrpCfg.lastSent === 'object' && waGrpCfg.lastSent !== null
+      ? waGrpCfg.lastSent : {};
+    const btnUrl  = waGrpCfg.buttonUrl  || WA_GROUP_WEB_URL;
+    const btnText = waGrpCfg.buttonText || '📢 Join Our Channel';
+
+    // Build premium caption once — all groups get the same drop
+    const grpCaption = await buildWaCaption(category, wallpapers.length, {
+      platform: 'group',
+      webUrl: btnUrl,
+    });
 
     for (const dest of waGrpCfg.destinations.filter(Boolean)) {
       const lastTs = lastSent[dest] || 0;
@@ -954,21 +975,22 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
         continue;
       }
 
-      const mentions = waGrpCfg.mentionAll ? await getGroupMentions(sock, dest) : [];
-      const waChLinks = (await Channel.find({ isActive: true, platform: 'whatsapp' })).map(c => c.link).filter(Boolean);
-      const btnUrl  = waGrpCfg.buttonUrl  || WA_GROUP_WEB_URL;
-      const btnText = waGrpCfg.buttonText || '📢 Join Our WA Channel';
+      // Ensure connection before each group — reconnects take ~10s
+      if (!isOwnerConnected()) {
+        logger.warn(`WA group: not connected, waiting 20s before send to ${dest}`);
+        await sleep(20000);
+        if (!isOwnerConnected()) {
+          logger.warn(`WA group: still not connected, skipping ${dest}`);
+          continue;
+        }
+      }
 
-      // Premium caption — same quality as channel drops, group-specific URL
-      const grpCaption = await buildWaCaption(category, wallpapers.length, {
-        platform: 'group',
-        webUrl: btnUrl,
-      });
+      // Always use a fresh socket right before sending
+      const dropSock = getOwnerSock();
+      const mentions = waGrpCfg.mentionAll ? await getGroupMentions(dropSock, dest) : [];
 
-      // Send album — button attached to first image via nativeFlow
-      const { isOwnerConnected: _ic, getOwnerSock: _gs } = require('./ownerWhatsapp');
-      if (!_ic()) { await sleep(20000); if (!_ic()) continue; }
-      const dropSock = _gs();
+      // Attempt 1: album with nativeFlow button on first image
+      let sent = false;
       try {
         const album = wallpapers.map((wp, i) => ({
           image: wp._buffer,
@@ -981,18 +1003,62 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
           } : {}),
         }));
         await dropSock.sendMessage(dest, { album }, { delayMs: 900 });
-      } catch (e) {
-        logger.warn('WA group album send failed: ' + e.message);
+        sent = true;
+        logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
+      } catch (albumErr) {
+        logger.warn(`WA group album failed for ${dest}: ${albumErr.message}`);
       }
 
-      lastSent[dest] = now;
-      await sm.set('waGroup.lastSent', lastSent).catch(() => {});
+      // Attempt 2: fallback to individual messages if album send failed
+      if (!sent) {
+        logger.info(`WA group: falling back to individual sends for ${dest}`);
+        if (!isOwnerConnected()) { await sleep(10000); }
+        if (!isOwnerConnected()) {
+          logger.warn(`WA group: not connected for fallback, skipping ${dest}`);
+          continue;
+        }
+        const fallbackSock = getOwnerSock();
+        let fallbackOk = false;
+        for (let i = 0; i < wallpapers.length; i++) {
+          try {
+            await fallbackSock.sendMessage(dest, {
+              image: wallpapers[i]._buffer,
+              mimetype: 'image/jpeg',
+              caption: i === 0 ? grpCaption : undefined,
+              ...(i === 0 && mentions.length ? { mentions } : {}),
+            });
+            fallbackOk = true;
+          } catch (imgErr) {
+            logger.warn(`WA group fallback img ${i} failed for ${dest}: ${imgErr.message}`);
+          }
+          await sleep(700);
+        }
+        sent = fallbackOk;
+        if (sent) logger.info(`WA group fallback: sent to ${dest} individually`);
+      }
+
+      if (sent) {
+        markPosted(wallpapers);
+        lastSent[dest] = now;
+        await sm.set('waGroup.lastSent', lastSent)
+          .catch(e => logger.warn('Could not persist waGroup.lastSent: ' + e.message));
+      }
+
       await sleep(1200);
     }
   }
 
-  for (const wp of posted) { delete wp._buffer; wp.postedToWa = true; await wp.save().catch(() => {}); }
-  return posted;
+  // ── Mark delivered wallpapers as posted and clean up buffers ────────────────
+  const delivered = wallpapers.filter(w => postedSet.has(String(w._id)));
+  for (const wp of delivered) {
+    delete wp._buffer;
+    wp.postedToWa = true;
+    await wp.save().catch(e => logger.warn('Could not mark wallpaper posted: ' + e.message));
+  }
+  // Clean up buffers for any wallpapers that weren't delivered
+  for (const wp of wallpapers) { if (wp._buffer) delete wp._buffer; }
+
+  return delivered;
 }
 
 async function runCategoryDrop(bot, category) {
