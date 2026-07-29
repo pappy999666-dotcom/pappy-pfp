@@ -959,7 +959,8 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
     const now         = Date.now();
     const lastSent    = typeof waGrpCfg.lastSent === 'object' && waGrpCfg.lastSent !== null
       ? waGrpCfg.lastSent : {};
-    const btnUrl  = waGrpCfg.buttonUrl  || config.webUrl;
+    // URL priority: Telegram-configured value → dedicated group web app → generic webUrl
+    const btnUrl  = waGrpCfg.buttonUrl  || WA_GROUP_WEB_URL || config.webUrl;
     const btnText = waGrpCfg.buttonText || '📢 Join Our Channel';
 
     // Build premium caption once — web URL in caption is always the group web app
