@@ -136,19 +136,26 @@ async function downloadPinterestPost(url) {
     const seen = new Set();
     const images = [];
 
-    // originals
-    for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/originals\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) {
-      if (!seen.has(m[0])) { seen.add(m[0]); images.push({ url: m[0], source: 'pinterest' }); }
+    // Extract filename hash to deduplicate same image at different sizes
+    const seenHashes = new Set();
+    function addImage(url) {
+      const hash = url.match(/\/([a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]+\.[a-z]{3,4})$/i)?.[1];
+      if (hash && seenHashes.has(hash)) return;
+      if (seen.has(url)) return;
+      if (hash) seenHashes.add(hash);
+      seen.add(url);
+      images.push({ url, source: 'pinterest' });
     }
-    // 736x
-    for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/736x\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) {
-      if (!seen.has(m[0])) { seen.add(m[0]); images.push({ url: m[0], source: 'pinterest' }); }
+
+    // originals first (highest quality)
+    for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/originals\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) addImage(m[0]);
+    // 736x only if no originals found
+    if (!images.length) {
+      for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/736x\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) addImage(m[0]);
     }
     // og:image fallback
     if (!images.length) {
-      for (const m of html.matchAll(/property="og:image"\s+content="([^"]+)"/g)) {
-        if (!seen.has(m[1])) { seen.add(m[1]); images.push({ url: m[1], source: 'pinterest' }); }
-      }
+      for (const m of html.matchAll(/property="og:image"\s+content="([^"]+)"/g)) addImage(m[1]);
     }
 
     return images.slice(0, config.limits?.maxDownloadImages || 20);

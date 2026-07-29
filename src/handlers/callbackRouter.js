@@ -170,6 +170,8 @@ async function route(ctx, bot) {
     if (data === 'o_users') return ow.users(ctx);
     if (data === 'o_broadcast') return ow.broadcastPrompt(ctx);
     if (data === 'o_restart') return ow.restart(ctx);
+    if (data === 'o_update')  return ows.updateFromGithub(ctx);
+    if (data === 'o_logs')    return ows.liveLogs(ctx);
     if (data === 'o_fj') return ow.fjPanel(ctx);
     if (data === 'fj_add') return ow.fjAddPrompt(ctx);
     if (data.startsWith('fj_del:')) return ow.fjDel(ctx, data.slice(7));

@@ -5,6 +5,12 @@ const config = require('../config');
 const settingsManager = require('../config/settingsManager');
 const { btn, PRIMARY, SUCCESS, DANGER } = require('../utils/buttonStyles');
 const { clearState } = require('../middleware/session');
+const { execSync, spawn } = require('child_process');
+const path = require('path');
+const logBuffer = require('../utils/logBuffer');
+
+const BOT_DIR = path.resolve(__dirname, '../../');
+const SRC_DIR = path.resolve(__dirname, '../');
 
 // ── Main Menu ─────────────────────────────────────────────────────────────
 async function settingsMenu(ctx) {
@@ -922,6 +928,68 @@ async function handleInput(ctx, _bot) {
   if (step === 'o_settings_addcat')             return addCatInput(ctx);
 }
 
+// ── Restart ──────────────────────────────────────────────────────────────
+async function restart(ctx) {
+  await ctx.answerCbQuery('🔄 Restarting...').catch(() => {});
+  await ctx.reply('🔄 <b>Restarting bot...</b>', { parse_mode: 'HTML' }).catch(() => {});
+  setTimeout(() => {
+    spawn('node', ['app.js'], {
+      cwd: SRC_DIR,
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+    process.exit(0);
+  }, 1500);
+}
+
+// ── Update from GitHub ────────────────────────────────────────────────────
+async function updateFromGithub(ctx) {
+  await ctx.answerCbQuery('⏳ Pulling from GitHub...').catch(() => {});
+  const msg = await ctx.reply('⏳ <b>Pulling latest code from GitHub...</b>', { parse_mode: 'HTML' });
+  try {
+    const pull = execSync('git pull origin main 2>&1', { cwd: BOT_DIR, timeout: 30000 }).toString().trim();
+    const alreadyUpToDate = pull.includes('Already up to date');
+    const text = alreadyUpToDate
+      ? `✅ <b>Already up to date</b>\n<blockquote>${pull}</blockquote>`
+      : `✅ <b>Update pulled!</b>\n<blockquote>${pull.slice(0, 600)}</blockquote>\n\n⚠️ Press <b>Restart</b> to apply changes.`;
+    await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [
+        [btn('🔄 Restart Now', 'o_restart', DANGER)],
+        [btn('🔙 Back', 'owner', PRIMARY)],
+      ]},
+    });
+  } catch (e) {
+    await ctx.telegram.editMessageText(ctx.chat.id, msg.message_id, null,
+      `❌ <b>Git pull failed</b>\n<blockquote>${e.message.slice(0, 500)}</blockquote>`,
+      { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[btn('🔙 Back', 'owner', PRIMARY)]] } }
+    ).catch(() => {});
+  }
+}
+
+// ── Live Logs Dashboard ───────────────────────────────────────────────────
+async function liveLogs(ctx) {
+  await ctx.answerCbQuery().catch(() => {});
+  const entries = logBuffer.getLast(40);
+  if (!entries.length) {
+    return ctx.reply('📋 <b>No logs yet.</b>', { parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[btn('🔄 Refresh', 'o_logs', PRIMARY), btn('🔙 Back', 'owner', PRIMARY)]] },
+    });
+  }
+  // Strip pino JSON prefix noise, keep readable lines
+  const lines = entries.map(e => {
+    const l = e.line.replace(/^\[.*?\]\s*/, '').slice(0, 120);
+    return l;
+  }).join('\n');
+  const text = `📋 <b>Live Logs</b> (last ${entries.length} lines)\n<blockquote>${lines.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</blockquote>`;
+  await ctx.reply(text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: [
+      [btn('🔄 Refresh', 'o_logs', PRIMARY), btn('🔙 Back', 'owner', PRIMARY)],
+    ]},
+  }).catch(() => ctx.reply('❌ Logs too long, check VPS console.'));
+}
+
 module.exports = {
   settingsMenu,
   dropsPanel, dropToggle, dropAutoToggle, dropSetImagesPrompt, dropSetImagesInput,
@@ -943,4 +1011,5 @@ module.exports = {
   handleInput,
   categoriesPanel, categoryToggle, categoryEnableAll, categoryDisableAll,
   addCatPrompt, addCatInput, viewSuggestions,
+  restart, updateFromGithub, liveLogs,
 };

@@ -128,6 +128,8 @@ const K = {
        btn('🔗 Pair Owner WA',          'o_wa_pair',   SUCCESS)],
       [btn('⚙️ Settings & Advanced',  'o_settings',  PRIMARY)],
       [btn('📜 Owner Commands',        'o_cmds',      PRIMARY)],
+      [btn('⬆️ Update from GitHub',   'o_update',    SUCCESS),
+       btn('📋 Live Logs',             'o_logs',      PRIMARY)],
       [mainMenuBtn()],
     ]};
   },
@@ -138,6 +140,8 @@ const K = {
       [btn('📱 Owner WA Status',      'o_wa_status', PRIMARY)],
       [btn('🔧 Set/Change Owner WA',  'o_wa_set',    SUCCESS)],
       [btn('🔗 Pair Owner WA',        'o_wa_pair',   SUCCESS)],
+      [btn('⬆️ Update from GitHub',   'o_update',    SUCCESS)],
+      [btn('📋 Live Logs',             'o_logs',      PRIMARY)],
       [btn('🔄 Restart Bot',          'o_restart',   DANGER)],
       [backBtn('owner')],
     ]};

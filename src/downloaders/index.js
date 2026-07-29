@@ -72,15 +72,52 @@ async function downloadPinterest(url) {
     }
   }
 
-  // Scraper fallback
-  const { downloadPinterestPost } = require('../services/pinterest');
-  const images = await downloadPinterestPost(url);
-  if (!images.length) return { error: 'No images found on this Pinterest page' };
-  return {
-    platform: 'Pinterest',
-    type: 'images',
-    media: images.map(img => ({ url: img.url, type: 'photo', title: img.title || 'Pinterest Image', _pinHdr: true })),
-  };
+  // Scraper fallback — check for video first
+  try {
+    const pageRes = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', Referer: 'https://www.pinterest.com/' },
+      timeout: 15000, maxRedirects: 5,
+    });
+    const html = pageRes.data;
+
+    // Check for video URL in page data
+    const videoMatch = html.match(/"video_list":\s*\{[^}]*"V_720P":\s*\{[^}]*"url":\s*"([^"]+)"/) ||
+      html.match(/"url":\s*"(https:\/\/v\.pinimg\.com\/[^"]+\.mp4[^"]*?)"/);
+    if (videoMatch) {
+      return {
+        platform: 'Pinterest',
+        type: 'video',
+        media: [{ url: videoMatch[1].replace(/\\u002F/g, '/'), type: 'video', title: 'Pinterest Video' }],
+      };
+    }
+
+    // Image scrape from already-fetched HTML
+    const seen = new Set();
+    const seenHashes = new Set();
+    const images = [];
+    function addImg(u) {
+      const hash = u.match(/\/([a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]+\.[a-z]{3,4})$/i)?.[1];
+      if (hash && seenHashes.has(hash)) return;
+      if (seen.has(u)) return;
+      if (hash) seenHashes.add(hash);
+      seen.add(u); images.push({ url: u, source: 'pinterest' });
+    }
+    for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/originals\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) addImg(m[0]);
+    if (!images.length) for (const m of html.matchAll(/https:\/\/i\.pinimg\.com\/736x\/[a-f0-9\/]+\.[a-z]{3,4}/gi)) addImg(m[0]);
+    if (!images.length) for (const m of html.matchAll(/property="og:image"\s+content="([^"]+)"/g)) addImg(m[1]);
+
+    if (images.length) {
+      return {
+        platform: 'Pinterest',
+        type: 'images',
+        media: images.slice(0, 20).map(img => ({ url: img.url, type: 'photo', title: 'Pinterest Image', _pinHdr: true })),
+      };
+    }
+  } catch (e) {
+    logger.warn(`Pinterest scrape: ${e.message}`);
+  }
+
+  return { error: 'No media found on this Pinterest page' };
 }
 
 // Updated cobalt API - tries multiple community instances with new API format

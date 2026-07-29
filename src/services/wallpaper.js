@@ -892,7 +892,13 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
   if (!waChCfg.enabled) return [];
 
   const dropCount = Math.min(Math.max(parseInt(waChCfg.imagesPerDrop, 10) || 10, 2), 10);
-  const wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(dropCount);
+  let wallpapers = await Wallpaper.find({ category, postedToWa: false }).sort({ addedAt: 1 }).limit(dropCount);
+  if (wallpapers.length < dropCount) {
+    const newWps = await downloadAndStoreWallpapers(category, dropCount - wallpapers.length + 4);
+    const ids = new Set(wallpapers.map(w => String(w._id)));
+    const fresh = newWps.filter(w => !ids.has(String(w._id)) && !w.postedToWa);
+    wallpapers = [...wallpapers, ...fresh].slice(0, dropCount);
+  }
   if (!wallpapers.length) return [];
 
   const sock = getOwnerSock();
@@ -954,21 +960,24 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
         waChLinks.length ? `📢 ${waChLinks[0]}` : '',
       ].filter(Boolean).join('\n');
 
-      // Send album (images grouped)
-      await sendWaDailyDrop(sock, dest, wallpapers, grpCaption, mentions);
-
-      // Send one nativeFlow interactive message: image header + caption + URL button
-      // This is the correct Android-compatible way to attach a URL button
+      // Send album — button attached to first image via nativeFlow
+      const { isOwnerConnected: _ic, getOwnerSock: _gs } = require('./ownerWhatsapp');
+      if (!_ic()) { await sleep(20000); if (!_ic()) continue; }
+      const dropSock = _gs();
       try {
-        await sock.sendMessage(dest, {
-          image: wallpapers[0]._buffer,
+        const album = wallpapers.map((wp, i) => ({
+          image: wp._buffer,
           mimetype: 'image/jpeg',
-          caption: `🔥 *${profile.name} Drop* — ${wallpapers.length} HD wallpapers just dropped!\n${waChLinks.length ? `📢 ${waChLinks[0]}` : ''}`.trim(),
-          footer: config.bot.name,
-          nativeFlow: [{ url: btnUrl, text: btnText }],
-        });
+          ...(i === 0 ? {
+            caption: grpCaption,
+            footer: config.bot.name,
+            nativeFlow: [{ url: btnUrl, text: btnText }],
+            ...(mentions.length ? { mentions } : {}),
+          } : {}),
+        }));
+        await dropSock.sendMessage(dest, { album }, { delayMs: 900 });
       } catch (e) {
-        logger.warn('WA nativeFlow msg failed: ' + e.message);
+        logger.warn('WA group album send failed: ' + e.message);
       }
 
       lastSent[dest] = now;
