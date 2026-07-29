@@ -123,6 +123,7 @@ const K = {
       [btn('🔒 Force Join Settings',  'o_fj',        PRIMARY)],
       [btn('📢 Channel Management',   'o_channels',  PRIMARY)],
       [btn('📣 Promotion Manager',     'o_promo',     SUCCESS)],
+      [btn('🏗 Group Management',      'o_group_mgmt', PRIMARY)],
       [btn('📱 Owner WA Status',        'o_wa_status', PRIMARY)],
       [btn('🔧 Set/Change Owner WA',    'o_wa_set',    SUCCESS),
        btn('🔗 Pair Owner WA',          'o_wa_pair',   SUCCESS)],

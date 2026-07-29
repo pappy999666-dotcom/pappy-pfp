@@ -16,6 +16,7 @@ const ui = require('../utils/ui');
 const eh = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const ows = require('./ownerSettingsHandler');
+const gd = require('./groupDashboardHandler');
 
 async function route(ctx, bot) {
   const data = ctx.callbackQuery?.data;
@@ -190,6 +191,25 @@ async function route(ctx, bot) {
     if (data.startsWith('promo_toggle:')) return ow.promoToggle(ctx, data.slice(13));
     if (data.startsWith('promo_del:')) return ow.promoDel(ctx, data.slice(10));
     if (data.startsWith('promo_edit:')) return ow.promoEditPrompt(ctx, data.slice(11));
+
+    if (!owner && data.startsWith('grp_'))
+      return ctx.answerCbQuery('Owner only.', { show_alert: true }).catch(() => {});
+
+    if (data === 'o_group_mgmt') return gd.groupList(ctx);
+    if (data.startsWith('grp_dash:'))          return gd.groupDash(ctx, data.slice(9));
+    if (data.startsWith('grp_invite:'))        return gd.refreshInviteLink(ctx, data.slice(11));
+    if (data.startsWith('grp_invite_new:'))    return gd.regenerateInviteLink(ctx, data.slice(15));
+    if (data.startsWith('grp_kick_all:'))      return gd.kickAllConfirm(ctx, data.slice(13));
+    if (data.startsWith('grp_kick_all_go:'))   return gd.kickAllGo(ctx, data.slice(16));
+    if (data.startsWith('grp_kick_adm:'))      return gd.kickAdminsConfirm(ctx, data.slice(13));
+    if (data.startsWith('grp_kick_adm_go:'))   return gd.kickAdminsGo(ctx, data.slice(16));
+    if (data.startsWith('grp_demote:'))        return gd.demoteAllConfirm(ctx, data.slice(11));
+    if (data.startsWith('grp_demote_go:'))     return gd.demoteAllGo(ctx, data.slice(14));
+    if (data.startsWith('grp_approve:'))       return gd.approveMenu(ctx, data.slice(12));
+    if (data.startsWith('grp_apr_all:'))       return gd.approveAllConfirm(ctx, data.slice(12));
+    if (data.startsWith('grp_apr_all_go:'))    return gd.approveAllGo(ctx, data.slice(15));
+    if (data.startsWith('grp_apr_num:'))       return gd.approveByAmountPrompt(ctx, data.slice(12));
+    if (data.startsWith('grp_apr_ctr:'))       return gd.approveByCountryPrompt(ctx, data.slice(12));
 
     if (data === 'o_jid') {
       const { isOwnerConnected, getOwnerSock } = require('../services/ownerWhatsapp');

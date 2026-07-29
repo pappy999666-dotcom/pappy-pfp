@@ -7,6 +7,7 @@ const gp = require('./groupPfpHandler');
 const dl = require('./downloadHandler');
 const ig = require('./imageGenHandler');
 const ow = require('../owner/ownerHandler');
+const gd = require('./groupDashboardHandler');
 const sm = require('../config/settingsManager');
 const ui = require('../utils/ui');
 const eh = require('../utils/errorHandler');
@@ -99,6 +100,14 @@ async function route(ctx, bot) {
 
       case 'promo_edit_url':
         if (owner) return ow.promoEditUrl(ctx);
+        break;
+
+      case 'grp_apr_num':
+        if (owner) return gd.approveByAmountDo(ctx, ctx.userState.groupJid, ctx.message.text?.trim() || '');
+        break;
+
+      case 'grp_apr_ctr':
+        if (owner) return gd.approveByCountryDo(ctx, ctx.userState.groupJid, ctx.message.text?.trim() || '');
         break;
 
       default:
