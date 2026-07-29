@@ -989,55 +989,35 @@ async function postWallpapersToWA(category, { forceGroup = false } = {}) {
       const dropSock = getOwnerSock();
       const mentions = waGrpCfg.mentionAll ? await getGroupMentions(dropSock, dest) : [];
 
-      // Album with nativeFlow button on the caption-bearing item (album[0]) only.
-      // Top-level nativeFlow/footer breaks Baileys' media grouping — keep the top-level
-      // payload as just { album } so Baileys sends a native album, then the URL button
-      // is part of the first image message that already owns the caption.
-      let sent = false;
-      try {
-        const album = wallpapers.map((wp, i) => ({
-          image: wp._buffer,
-          mimetype: 'image/jpeg',
-          ...(i === 0 ? {
-            caption: grpCaption,
-            ...(mentions.length ? { mentions } : {}),
-            nativeFlow: [{ url: btnUrl, text: btnText }],
-            footer: config.bot.name,
-          } : {}),
-        }));
-        await dropSock.sendMessage(dest, { album }, { delayMs: 900 });
-        sent = true;
+      // Step 1: Send the album using the same clean channel flow.
+      // @crysnovax/baileys validates every album item must be a pure imageMessage/videoMessage —
+      // any nativeFlow wrapper on an item (or at the top level alongside album) causes the library
+      // to throw "Invalid message type for album" / "Invalid media type for interactive message
+      // header", which triggers the individual-send fallback. Using sendWaDailyDrop keeps the
+      // album native and intact exactly as Baileys intends.
+      const albumResult = await sendWaDailyDrop(dropSock, dest, wallpapers, grpCaption, mentions);
+      const sent = albumResult !== null && albumResult !== undefined;
+      if (sent) {
         logger.info(`WA group drop: ${wallpapers.length} ${category} wallpapers → ${dest}`);
-      } catch (albumErr) {
-        logger.warn(`WA group album failed for ${dest}: ${albumErr.message}`);
+      } else {
+        logger.warn(`WA group drop: album failed for ${dest}, skipping button`);
       }
 
-      // Attempt 2: fallback to individual messages if album send failed
-      if (!sent) {
-        logger.info(`WA group: falling back to individual sends for ${dest}`);
-        if (!isOwnerConnected()) { await sleep(10000); }
-        if (!isOwnerConnected()) {
-          logger.warn(`WA group: not connected for fallback, skipping ${dest}`);
-          continue;
+      // Step 2: After the album, send the URL button as a standalone nativeFlow text message.
+      // No image is attached — this avoids any duplicate and keeps the album clean.
+      // The button must be sent as a separate message because the library does not support
+      // nativeFlow attached to album items or to the albumMessage parent envelope.
+      if (sent && isOwnerConnected()) {
+        try {
+          const btnSock = getOwnerSock();
+          await btnSock.sendMessage(dest, {
+            text: btnText,
+            nativeFlow: [{ url: btnUrl, text: btnText }],
+            footer: config.bot.name,
+          });
+        } catch (btnErr) {
+          logger.warn(`WA group button send failed for ${dest}: ${btnErr.message}`);
         }
-        const fallbackSock = getOwnerSock();
-        let fallbackOk = false;
-        for (let i = 0; i < wallpapers.length; i++) {
-          try {
-            await fallbackSock.sendMessage(dest, {
-              image: wallpapers[i]._buffer,
-              mimetype: 'image/jpeg',
-              caption: i === 0 ? grpCaption : undefined,
-              ...(i === 0 && mentions.length ? { mentions } : {}),
-            });
-            fallbackOk = true;
-          } catch (imgErr) {
-            logger.warn(`WA group fallback img ${i} failed for ${dest}: ${imgErr.message}`);
-          }
-          await sleep(700);
-        }
-        sent = fallbackOk;
-        if (sent) logger.info(`WA group fallback: sent to ${dest} individually`);
       }
 
       if (sent) {
